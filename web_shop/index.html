@@ -3,187 +3,562 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stealth Chess Bot - المتجر الرسمي</title>
+    <title>Stealth Chess Bot - Official Store &amp; Automatic Activation</title>
+    <meta name="description" content="Official store for Stealth Chess Bot (iOS & Windows PC). Instant automated USDT payments, license generation, and direct downloads.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- QR Code Generator Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
 </head>
-<body>
-    <div class="glass-bg"></div>
-    <div class="ambient-glow glow-1"></div>
-    <div class="ambient-glow glow-2"></div>
+<body class="theme-obsidian">
+    <!-- Ambient Lighting Effects -->
+    <div class="ambient-glow glow-red"></div>
+    <div class="ambient-glow glow-green"></div>
+    <div class="grid-overlay"></div>
 
-    <header>
-        <div class="logo">
-            <span class="logo-icon">♟️</span>
-            <span class="logo-text">STEALTH CHESS</span>
+    <!-- Navigation Header -->
+    <header class="site-header">
+        <div class="header-container">
+            <a href="#" class="brand-logo">
+                <img src="assets/logo.png" alt="Stealth Chess Logo" class="brand-img" onerror="this.src='logo.png'">
+                <div class="brand-text">
+                    <span class="brand-title">STEALTH CHESS</span>
+                    <span class="brand-badge" data-i18n="header_badge">PRO ASSISTANT</span>
+                </div>
+            </a>
+
+            <nav class="nav-links">
+                <a href="#features" data-i18n="nav_features">الميزات</a>
+                <a href="#showcase" data-i18n="nav_showcase">معاينة النظام</a>
+                <a href="#pricing" data-i18n="nav_pricing">الباقات والأسعار</a>
+                <a href="#downloads" data-i18n="nav_downloads">التحميل والدليل</a>
+            </nav>
+
+            <div class="header-actions">
+                <!-- Language Switcher Button -->
+                <button id="langToggleBtn" class="lang-switch-btn" title="Toggle Language">
+                    <span class="lang-icon">🌐</span>
+                    <span id="langLabel">English</span>
+                </button>
+                <a href="#pricing" class="btn-glow-sm" data-i18n="btn_get_started">اشترك الآن ⚡</a>
+            </div>
         </div>
-        <nav>
-            <a href="#features">الميزات</a>
-            <a href="#pricing">الباقات</a>
-            <a href="#checkout" class="btn-primary-sm">اشترِ الآن</a>
-        </nav>
     </header>
 
     <main>
         <!-- Hero Section -->
-        <section class="hero">
-            <div class="hero-content">
-                <span class="badge">الإصدار v1.2.0 المستقر</span>
-                <h1>العب بذكاء خارق <br><span class="gradient-text">دون أن يكشفك أحد</span></h1>
-                <p>بوت الشطرنج الأكثر تخفياً في العالم للكمبيوتر والآيفون. أسهم مساعدة مرئية لك فقط، ومخفية تماماً عن تسجيل الشاشة وبث الديسكورد.</p>
-                <div class="hero-actions">
-                    <a href="#pricing" class="btn-primary">استعرض الباقات ⚡</a>
-                    <a href="#features" class="btn-secondary">كيف يعمل؟ 🔍</a>
+        <section class="hero-section">
+            <div class="container hero-grid">
+                <div class="hero-content">
+                    <div class="live-pill">
+                        <span class="pulse-dot"></span>
+                        <span data-i18n="hero_pill">مفعل 100% • Stockfish 18 • مانع حظر بشري</span>
+                    </div>
+
+                    <h1 class="hero-heading">
+                        <span data-i18n="hero_title_1">تفوق في الشطرنج</span><br>
+                        <span class="gradient-fire" data-i18n="hero_title_gradient">بتخفٍ واحترافية مطلقة</span>
+                    </h1>
+
+                    <p class="hero-desc" data-i18n="hero_desc">
+                        المساعد الذكي الأقوى في العالم لأجهزة الآيفون (iOS) والكمبيوتر (Windows). يرشدك إلى أفضل النقلات التكتيكية بأسهم ذكية مخفية تماماً عن تسجيل الشاشة وبث الديسكورد والزووم.
+                    </p>
+
+                    <!-- Platform Selector Switch -->
+                    <div class="platform-selector-box">
+                        <div class="selector-label" data-i18n="choose_platform">اختر جهازك الأساسي:</div>
+                        <div class="platform-tabs">
+                            <button class="platform-tab active" data-platform="ios" onclick="selectPlatform('ios')">
+                                <span class="tab-icon">🍏</span>
+                                <span class="tab-text">iPhone / iPad (IPA)</span>
+                            </button>
+                            <button class="platform-tab" data-platform="pc" onclick="selectPlatform('pc')">
+                                <span class="tab-icon">💻</span>
+                                <span class="tab-text">Windows PC (EXE)</span>
+                            </button>
+                            <button class="platform-tab" data-platform="both" onclick="selectPlatform('both')">
+                                <span class="tab-icon">⚡</span>
+                                <span class="tab-text" data-i18n="platform_both">كلا الجهازين (الكل)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="hero-cta-group">
+                        <a href="#pricing" class="btn-fire-hero" data-i18n="hero_cta_buy">ابدأ الفوز فوراً ♟️</a>
+                        <a href="#showcase" class="btn-glass-hero" data-i18n="hero_cta_demo">شاهد كيف يعمل 🔍</a>
+                    </div>
+
+                    <div class="hero-stats">
+                        <div class="stat-item">
+                            <span class="stat-number">2850+</span>
+                            <span class="stat-label" data-i18n="stat_elo">أقصى تصنيف ELO</span>
+                        </div>
+                        <div class="stat-divider"></div>
+                        <div class="stat-item">
+                            <span class="stat-number">0.0%</span>
+                            <span class="stat-label" data-i18n="stat_ban">معدل كشف الحسابات</span>
+                        </div>
+                        <div class="stat-divider"></div>
+                        <div class="stat-item">
+                            <span class="stat-number">&lt; 0.2s</span>
+                            <span class="stat-label" data-i18n="stat_speed">زمن تحليل النقلة</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hero-visual">
+                    <div class="showcase-card-wrapper">
+                        <div class="card-glow-bg"></div>
+                        <img src="assets/hero_showcase.jpg" alt="Stealth Chess Overlay Interface" class="showcase-image" onerror="this.style.display='none'">
+                        
+                        <!-- Floating Feature Badges -->
+                        <div class="floating-badge badge-top-right">
+                            <span class="badge-icon">🛡️</span>
+                            <div>
+                                <strong data-i18n="badge_stealth_title">وضع التخفي الذكي</strong>
+                                <small data-i18n="badge_stealth_desc">مخفي عن برامج التسجيل</small>
+                            </div>
+                        </div>
+
+                        <div class="floating-badge badge-bottom-left">
+                            <span class="badge-icon">🔥</span>
+                            <div>
+                                <strong data-i18n="badge_engine_title">Stockfish 18 WASM</strong>
+                                <small data-i18n="badge_engine_desc">تحليل لحظي خارق للرقعة</small>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="hero-visual">
-                <div class="chess-card-3d" id="mainCard">
-                    <div class="card-glow"></div>
-                    <div class="card-content">
-                        <div class="card-header">
-                            <span class="chip">Stealth Engine Active</span>
-                            <span class="status-dot"></span>
+        </section>
+
+        <!-- Features Section -->
+        <section id="features" class="features-section">
+            <div class="container">
+                <div class="section-heading-center">
+                    <span class="section-tag" data-i18n="features_tag">تقنيات متطورة</span>
+                    <h2 class="section-title" data-i18n="features_title">لماذا يختار المحترفون هذا المساعد؟</h2>
+                    <p class="section-subtitle" data-i18n="features_subtitle">تم بناؤه بتقنيات هندسية متقدمة لتوفير قوة المحركات العالمية مع أمان بشري كامل.</p>
+                </div>
+
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon-box fire">👁️‍🗨️</div>
+                        <h3 data-i18n="feat_1_title">شاشة التخفي الشبحية (Stealth Overlay)</h3>
+                        <p data-i18n="feat_1_desc">النظام يدمج الأسهم ولوحة التحليل على شاشتك أنت فقط. عند البث المباشر على Discord أو تسجيل الشاشة لليوتيوب، لا تظهر أي أسهم إطلاقاً وتبدو كلاعب طبيعي عبقري.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon-box green">🤖</div>
+                        <h3 data-i18n="feat_2_title">خوارزمية محاكاة اللعب البشري (Anti-Ban)</h3>
+                        <p data-i18n="feat_2_desc">يتجنب تحليلات الشطرنج الآلية بكفاءة عن طريق إضافة تأخير عشوائي بشري ذكي، واقتراح نقلات ثانوية ممتازة لخداع خوارزميات كشف الغش ومحاكاة لاعبي الـ Grandmaster.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon-box gold">📱</div>
+                        <h3 data-i18n="feat_3_title">تطبيق مخصص للآيفون (iOS IPA)</h3>
+                        <p data-i18n="feat_3_desc">تطبيق متكامل بدون جيلبريك لهواتف iPhone وiPad بمحرك Stockfish 18 مدمج يعمل بدون إنترنت، وواجهة تحكم كاملة في العمق والمهارة والتصنيف.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon-box purple">💻</div>
+                        <h3 data-i18n="feat_4_title">نسخة الكمبيوتر الفائقة (Windows EXE)</h3>
+                        <p data-i18n="feat_4_desc">معايرة أوتوماتيكية بنقرة واحدة لأبعاد الرقعة، اختصارات كيبورد سريعة (Ctrl+Shift+H)، ودعم فوري لمواقع Chess.com وLichess بدون أي تأخير.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon-box blue">⚡</div>
+                        <h3 data-i18n="feat_5_title">دفع وتفعيل تلقائي بالكامل (USDT)</h3>
+                        <p data-i18n="feat_5_desc">لا حاجة لانتظار الرد اليدوي. فور قيامك بالتحويل عبر Trust Wallet يتم فحص البلوكشين وتوليد مفتاح ترخيصك الحصري وروابط التحميل فوراً.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon-box cyan">🎯</div>
+                        <h3 data-i18n="feat_6_title">تحكم كامل بمستوى التصنيف (ELO)</h3>
+                        <p data-i18n="feat_6_desc">حدد قوتك بمرونة من 1200 ELO (مبتدئ طبيعي) حتى 2850+ ELO (سوبر جراند ماستر) عبر شريط Depth وSkill Level في التطبيق.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Visual Showcase / Mobile Preview -->
+        <section id="showcase" class="showcase-section">
+            <div class="container">
+                <div class="showcase-box">
+                    <div class="showcase-content">
+                        <span class="section-tag" data-i18n="showcase_tag">تجربة استثنائية على الهاتف</span>
+                        <h2 data-i18n="showcase_title">مصمم خصيصاً لهواتف iPhone</h2>
+                        <p data-i18n="showcase_desc">
+                            استمتع بتجربة لعب احترافية وأنت جالس على أريكتك. التطبيق يفتح Chess.com في بيئة آمنة معزولة، ويحقن المحرك مباشرة ليرسم لك مسار الفوز في الوقت الفعلي.
+                        </p>
+                        
+                        <div class="showcase-features-list">
+                            <div class="s-feat-item">
+                                <span class="check-icon">✓</span>
+                                <span data-i18n="s_feat_1">دعم كامل لجميع أجهزة iPhone بنظام iOS 13 وحتى أحدث iOS</span>
+                            </div>
+                            <div class="s-feat-item">
+                                <span class="check-icon">✓</span>
+                                <span data-i18n="s_feat_2">تثبيت سهل عبر ESign أو Scarlet أو Sideloadly بدون كمبيوتر</span>
+                            </div>
+                            <div class="s-feat-item">
+                                <span class="check-icon">✓</span>
+                                <span data-i18n="s_feat_3">لا يتطلب جيلبريك ولا يُعدل على ملفات النظام المحمية</span>
+                            </div>
                         </div>
-                        <div class="chess-animation">
-                            <div class="piece king">♚</div>
-                            <div class="arrow-3d"></div>
-                            <div class="piece knight">♞</div>
+
+                        <div class="showcase-btn-wrap">
+                            <a href="#pricing" class="btn-fire-hero" data-i18n="btn_choose_plan">اختر باقتك الآن ⚡</a>
                         </div>
-                        <h3>خوارزمية مانع الباند البشري</h3>
-                        <p>تأخير عشوائي ذكي واقتراح نقلات بديلة لمحاكاة اللعب البشري الطبيعي.</p>
+                    </div>
+                    <div class="showcase-mockup-wrapper">
+                        <img src="assets/mobile_mockup.jpg" alt="iPhone Chess Assistant Mockup" class="mobile-mockup-img" onerror="this.style.display='none'">
                     </div>
                 </div>
             </div>
         </section>
 
         <!-- Pricing Section -->
-        <section id="pricing" class="pricing">
-            <h2 class="section-title">اختر باقتك وابدأ الفوز فوراً</h2>
-            <div class="pricing-grid">
-                <!-- Monthly Plan -->
-                <div class="price-card" onclick="openCheckout('Monthly', 15)">
-                    <div class="price-header">
-                        <h3>الاشتراك الشهري</h3>
-                        <div class="price">$15<span>/ شهرياً</span></div>
-                    </div>
-                    <ul class="features-list">
-                        <li>✅ الوصول الكامل لنسخة الكمبيوتر (EXE)</li>
-                        <li>✅ الوصول الكامل لنسخة الآيفون (iOS)</li>
-                        <li>✅ تفعيل ميزة التخفي عن البث والتسجيل</li>
-                        <li>✅ تحديثات مجانية طوال فترة الاشتراك</li>
-                        <li>🔒 قفل جهاز واحد للكمبيوتر + هاتف</li>
-                    </ul>
-                    <button class="btn-card-buy">اختر الباقة الشهري</button>
+        <section id="pricing" class="pricing-section">
+            <div class="container">
+                <div class="section-heading-center">
+                    <span class="section-tag" data-i18n="pricing_tag">باقات الاشتراك</span>
+                    <h2 class="section-title" data-i18n="pricing_title">اختر الباقة المناسبة لك وابدأ فوراً</h2>
+                    <p class="section-subtitle" data-i18n="pricing_subtitle">دفع آمن ومباشر بالعملات الرقمية (USDT TRC20) عبر Trust Wallet مع تسليم وتفعيل فوري.</p>
                 </div>
 
-                <!-- Lifetime Plan -->
-                <div class="price-card popular" onclick="openCheckout('Lifetime', 85)">
-                    <div class="ribbon">الأكثر طلباً 🔥</div>
-                    <div class="price-header">
-                        <h3>اشتراك مدى الحياة</h3>
-                        <div class="price">$85<span>/ دفعة واحدة</span></div>
-                    </div>
-                    <ul class="features-list">
-                        <li>✅ وصول أبدي لجميع التحديثات المستقبلية</li>
-                        <li>✅ نسخة الكمبيوتر + نسخة الآيفون</li>
-                        <li>✅ أولوية الدعم الفني VIP في ديسكورد</li>
-                        <li>✅ دعم كامل للعب التلقائي الذكي القادم</li>
-                        <li>🔒 قفل جهازين للكمبيوتر + هاتف</li>
-                    </ul>
-                    <button class="btn-card-buy-popular">امتلك مدى الحياة الآن</button>
-                </div>
-            </div>
-        </section>
-
-        <!-- Checkout Section -->
-        <section id="checkout" class="checkout-section hidden">
-            <div class="checkout-container">
-                <div class="checkout-form">
-                    <h2>بوابة الدفع الآمنة</h2>
-                    <p class="plan-summary">الباقة المختارة: <span id="selectedPlanName">Monthly</span> - <span id="selectedPlanPrice">$15</span></p>
-                    
-                    <form id="paymentForm" onsubmit="processPayment(event)">
-                        <div class="input-group">
-                            <label>الاسم الكامل على البطاقة</label>
-                            <input type="text" id="cardName" required placeholder="John Doe">
+                <div class="pricing-cards-grid">
+                    <!-- 1. Monthly Plan ($10) -->
+                    <div class="price-card" id="card-monthly">
+                        <div class="card-tier-badge" data-i18n="plan_monthly_title">الاشتراك الشهري</div>
+                        <div class="card-price-wrap">
+                            <span class="currency">$</span>
+                            <span class="price-val">10</span>
+                            <span class="price-period" data-i18n="period_month">/ شهر واحد</span>
                         </div>
+                        <p class="tier-desc" data-i18n="plan_monthly_desc">مثالي للتجربة والبطولات القصيرة ورفع تقييمك السريع.</p>
                         
-                        <div class="input-group">
-                            <label>رقم بطاقة الائتمان (Visa / Mastercard)</label>
-                            <input type="text" id="cardNumber" maxlength="19" required placeholder="xxxx xxxx xxxx xxxx" oninput="formatCardNumber(this)">
-                        </div>
+                        <div class="plan-divider"></div>
 
-                        <div class="row">
-                            <div class="input-group half">
-                                <label>تاريخ الانتهاء</label>
-                                <input type="text" id="cardExpiry" maxlength="5" required placeholder="MM/YY" oninput="formatExpiry(this)">
-                            </div>
-                            <div class="input-group half">
-                                <label>الرمز السري (CVV)</label>
-                                <input type="text" id="cardCvv" maxlength="3" required placeholder="***" onfocus="flipCreditCard(true)" onblur="flipCreditCard(false)">
-                            </div>
-                        </div>
+                        <ul class="plan-perks">
+                            <li><span class="icon">✅</span> <span data-i18n="perk_full_access">وصول كامل لنسخة الآيفون أو الكمبيوتر</span></li>
+                            <li><span class="icon">✅</span> <span data-i18n="perk_engine">محرك Stockfish 18 بدون قيود</span></li>
+                            <li><span class="icon">✅</span> <span data-i18n="perk_stealth">تقنية إخفاء الأسهم عن التسجيل والبث</span></li>
+                            <li><span class="icon">✅</span> <span data-i18n="perk_antiban">خوارزمية محاكاة اللعب البشري</span></li>
+                            <li><span class="icon">🔒</span> <span data-i18n="perk_duration_30">صلاحية تفعيل لمدة 30 يوماً كاملة</span></li>
+                        </ul>
 
-                        <div class="input-group">
-                            <label>رمز جهازك (Machine ID / Device ID)</label>
-                            <input type="text" id="deviceId" required placeholder="MOB-xxxx-xxxx-xxxx أو رمز الكمبيوتر">
-                            <span class="helper-text">ستقوم خوارزمية البوت بقفل ترخيصك على هذا الجهاز لحمايته.</span>
-                        </div>
+                        <button class="btn-card-action" onclick="initiateCheckout('Monthly', 10, 'MON')">
+                            <span data-i18n="btn_buy_monthly">اشترك شهرياً ($10) 🚀</span>
+                        </button>
+                    </div>
 
-                        <button type="submit" class="btn-pay" id="payButton">تأكيد الدفع والتفعيل الفوري 🔒</button>
-                    </form>
-                </div>
+                    <!-- 2. 3-Month Plan ($25 - Most Popular) -->
+                    <div class="price-card popular" id="card-3months">
+                        <div class="popular-ribbon" data-i18n="badge_most_popular">الأكثر طلباً 🔥 وفر $5</div>
+                        <div class="card-tier-badge gold" data-i18n="plan_3m_title">اشتراك 3 أشهر</div>
+                        <div class="card-price-wrap">
+                            <span class="currency">$</span>
+                            <span class="price-val">25</span>
+                            <span class="price-period" data-i18n="period_3m">/ 3 أشهر كاملة</span>
+                        </div>
+                        <p class="tier-desc" data-i18n="plan_3m_desc">الخيار الأمثل لبناء تقييم قوي ومستقر والسيطرة على الألعاب.</p>
 
-                <!-- 3D Credit Card Preview Container -->
-                <div class="card-preview-container">
-                    <div class="credit-card-3d" id="creditCard">
-                        <!-- Front Face -->
-                        <div class="card-face card-front">
-                            <div class="card-chip"></div>
-                            <div class="card-logo">VISA</div>
-                            <div class="card-number-display" id="displayCardNumber">•••• •••• •••• ••••</div>
-                            <div class="card-holder-info">
-                                <div class="card-label">حامل البطاقة</div>
-                                <div class="card-value" id="displayName">YOUR NAME</div>
-                            </div>
-                            <div class="card-expiry-info">
-                                <div class="card-label">ينتهي في</div>
-                                <div class="card-value" id="displayExpiry">MM/YY</div>
-                            </div>
+                        <div class="plan-divider"></div>
+
+                        <ul class="plan-perks">
+                            <li><span class="icon">✅</span> <span data-i18n="perk_all_features">كافة ميزات الاشتراك الشهري</span></li>
+                            <li><span class="icon">✅</span> <span data-i18n="perk_both_platforms">دعم نسخة الآيفون (IPA) + الكمبيوتر (EXE)</span></li>
+                            <li><span class="icon">✅</span> <span data-i18n="perk_updates">تحديثات مجانية مستمرة للنسخ</span></li>
+                            <li><span class="icon">✅</span> <span data-i18n="perk_priority_support">دعم فني وتوجيه للمباريات</span></li>
+                            <li><span class="icon">🔒</span> <span data-i18n="perk_duration_90">صلاحية تفعيل لمدة 90 يوماً كاملة</span></li>
+                        </ul>
+
+                        <button class="btn-card-action fire" onclick="initiateCheckout('3 Months', 25, 'TRM')">
+                            <span data-i18n="btn_buy_3m">اشترك لـ 3 أشهر ($25) ⚡</span>
+                        </button>
+                    </div>
+
+                    <!-- 3. Lifetime Plan ($50 - Best Value) -->
+                    <div class="price-card vip" id="card-lifetime">
+                        <div class="vip-ribbon" data-i18n="badge_best_value">أفضل قيمة ⭐ وفر للأبد</div>
+                        <div class="card-tier-badge purple" data-i18n="plan_life_title">اشتراك مدى الحياة</div>
+                        <div class="card-price-wrap">
+                            <span class="currency">$</span>
+                            <span class="price-val">50</span>
+                            <span class="price-period" data-i18n="period_life">/ دفعة واحدة فقط</span>
                         </div>
-                        <!-- Back Face -->
-                        <div class="card-face card-back">
-                            <div class="magnetic-strip"></div>
-                            <div class="signature-bar">
-                                <span class="cvv-display" id="displayCvv">***</span>
-                            </div>
-                            <div class="card-back-text">المعاملة مشفرة وآمنة 100% بنظام SSL</div>
-                        </div>
+                        <p class="tier-desc" data-i18n="plan_life_desc">امتلك التطبيق للأبد بدون أي اشتراكات أو تجديدات شهرية.</p>
+
+                        <div class="plan-divider"></div>
+
+                        <ul class="plan-perks">
+                            <li><span class="icon">👑</span> <span data-i18n="perk_life_unlimited">وصول أبدي غير محدود (صلاحية 2099+)</span></li>
+                            <li><span class="icon">👑</span> <span data-i18n="perk_life_platforms">نسخة الآيفون (iOS) + نسخة الكمبيوتر (PC)</span></li>
+                            <li><span class="icon">👑</span> <span data-i18n="perk_life_updates">جميع التحديثات المستقبلية مجاناً</span></li>
+                            <li><span class="icon">👑</span> <span data-i18n="perk_life_vip">أولوية VIP في الدعم والتطوير</span></li>
+                            <li><span class="icon">👑</span> <span data-i18n="perk_life_lock">إمكانية نقل المفتاح بين أجهزتك عند الترقية</span></li>
+                        </ul>
+
+                        <button class="btn-card-action vip-btn" onclick="initiateCheckout('Lifetime', 50, 'LFT')">
+                            <span data-i18n="btn_buy_life">امتلك مدى الحياة ($50) 👑</span>
+                        </button>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Activation Success Modal -->
-        <div id="successModal" class="modal hidden">
-            <div class="modal-content">
-                <span class="success-icon">🎉</span>
-                <h2>تم الدفع والتفعيل بنجاح!</h2>
-                <p>لقد قمنا بتوليد مفتاح ترخيص مقفل على جهازك وتحديث السيرفر تلقائياً.</p>
-                <div class="license-box">
-                    <div class="license-label">مفتاح ترخيصك الحصري:</div>
-                    <div class="license-key" id="generatedKeyDisplay">MON-xxxx-xxxx-xxxx</div>
-                    <button class="btn-copy" onclick="copyLicenseKey()">نسخ المفتاح 📋</button>
+        <!-- Checkout & Payment Drawer Modal -->
+        <div id="paymentModal" class="checkout-modal-backdrop hidden">
+            <div class="checkout-modal">
+                <button class="modal-close-btn" onclick="closeCheckout()">&times;</button>
+                
+                <div class="modal-header">
+                    <div class="trust-badge">
+                        <span class="trust-icon">🛡️</span>
+                        <span>Trust Wallet / TRON Network (TRC20)</span>
+                    </div>
+                    <h2 class="modal-title" data-i18n="modal_payment_title">بوابة الدفع والتفعيل التلقائي</h2>
+                    <p class="modal-subtitle" data-i18n="modal_payment_subtitle">قم بإرسال قيمة الباقة عبر محفظة Trust Wallet أو أي محفظة تدعم USDT (TRC20)</p>
                 </div>
-                <p class="modal-note">تم إرسال نسخة من المفتاح إلى قاعدة بيانات الديسكورد والآيفون. استمتع باللعب!</p>
-                <button class="btn-close" onclick="closeSuccessModal()">إغلاق</button>
+
+                <!-- Order Summary Card -->
+                <div class="order-summary-box">
+                    <div class="summary-row">
+                        <span class="summary-label" data-i18n="sum_plan">الباقة المختارة:</span>
+                        <strong id="modalPlanName" class="summary-val">Monthly</strong>
+                    </div>
+                    <div class="summary-row">
+                        <span class="summary-label" data-i18n="sum_platform">المنصة المستهدفة:</span>
+                        <strong id="modalPlatform" class="summary-val">iPhone (iOS IPA)</strong>
+                    </div>
+                    <div class="summary-row highlight">
+                        <span class="summary-label" data-i18n="sum_amount">المبلغ المطلوب بدقة:</span>
+                        <div class="amount-tag">
+                            <span id="modalAmount">10</span>
+                            <span class="unit">USDT</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Crypto Payment Instructions -->
+                <div class="payment-steps-container">
+                    <div class="wallet-qr-section">
+                        <div id="qrcode" class="qrcode-wrapper"></div>
+                        <span class="qr-note" data-i18n="qr_scan_note">امسح الكود عبر Trust Wallet أوBinance</span>
+                    </div>
+
+                    <div class="wallet-details-section">
+                        <div class="input-field-group">
+                            <label class="field-label">
+                                <span data-i18n="wallet_addr_label">عنوان المحفظة (USDT - TRC20):</span>
+                                <span class="network-tag">شبكة TRON فقط</span>
+                            </label>
+                            <div class="copy-input-row">
+                                <input type="text" id="walletAddressInput" value="TEfH3nbCCJ8eDjC3Z4wwoynWvdtfPaCkB5" readonly>
+                                <button type="button" class="btn-copy-addr" onclick="copyWalletAddress()">
+                                    <span id="copyAddrText" data-i18n="btn_copy">نسخ 📋</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Optional Device ID Input -->
+                        <div class="input-field-group">
+                            <label class="field-label">
+                                <span data-i18n="device_id_optional">رمز جهازك (اختياري لقفل الترخيص):</span>
+                                <small class="text-dim" data-i18n="device_id_hint">(MOB-xxxx للآيفون أو اتركه فارغاً)</small>
+                            </label>
+                            <input type="text" id="userDeviceId" placeholder="مثال: MOB-A1B2-C3D4 أو اتركه فارغاً">
+                        </div>
+
+                        <!-- Transaction Hash (TxID) Input -->
+                        <div class="input-field-group">
+                            <label class="field-label">
+                                <span data-i18n="txid_label">رقم العملية (Transaction Hash / TxID):</span>
+                                <span class="required-star">*</span>
+                            </label>
+                            <input type="text" id="txHashInput" placeholder="الصق الـ Transaction ID هنا بعد التحويل" autocomplete="off">
+                            <small class="field-help" data-i18n="txid_help">تجد رمز العملية (TxID) في تفاصيل الحوالة داخل تطبيق Trust Wallet.</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Verification Action & Live Polling Status -->
+                <div class="modal-footer-actions">
+                    <button id="verifyPaymentBtn" class="btn-verify-payment" onclick="verifyAndActivatePayment()">
+                        <span class="btn-icon">⚡</span>
+                        <span id="verifyBtnText" data-i18n="btn_verify_payment">تأكيد الدفع واستخراج الترخيص فوراً</span>
+                    </button>
+                    
+                    <div id="paymentStatusBox" class="status-live-box hidden">
+                        <div class="loader-spinner"></div>
+                        <span id="paymentStatusText">جاري فحص شبكة TRON وتأكيد الحوالة...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Success & Delivery Hub Modal -->
+        <div id="successHubModal" class="checkout-modal-backdrop hidden">
+            <div class="delivery-modal">
+                <div class="delivery-header">
+                    <div class="confetti-icon">🎉</div>
+                    <h2 class="delivery-title" data-i18n="delivery_title">تم الدفع وتوليد ترخيصك بنجاح!</h2>
+                    <p class="delivery-subtitle" data-i18n="delivery_subtitle">مرحباً بك في مجتمع النخبة. تم تسجيل وتفعيل اشتراكك بنجاح.</p>
+                </div>
+
+                <!-- License Card -->
+                <div class="generated-license-card">
+                    <div class="license-top">
+                        <span class="badge-active" data-i18n="license_active">🟢 مفتاح ترخيص فعال</span>
+                        <span id="cardTierLabel" class="tier-pill">MONTHLY</span>
+                    </div>
+
+                    <div class="license-display-row">
+                        <code id="activeLicenseKey">MON-XXXX-XXXX-XXXX-XXXX</code>
+                        <button class="btn-copy-key" onclick="copyGeneratedKey()">
+                            <span id="copyKeyText" data-i18n="btn_copy">نسخ 📋</span>
+                        </button>
+                    </div>
+
+                    <div class="license-meta-row">
+                        <div>
+                            <small data-i18n="lbl_expiry">تاريخ الصلاحية:</small>
+                            <strong id="activeKeyExpiry">2026-10-21</strong>
+                        </div>
+                        <div>
+                            <small data-i18n="lbl_platform">المنصة المختارة:</small>
+                            <strong id="activeKeyPlatform">iPhone (iOS)</strong>
+                        </div>
+                        <div>
+                            <small data-i18n="lbl_txid">رقم المعاملة:</small>
+                            <strong id="activeKeyTxid" class="truncated-txid">Confirmed</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Direct Downloads & Dynamic Setup Guide -->
+                <div class="delivery-downloads-wrap">
+                    <div class="download-buttons-group">
+                        <a id="btnDownloadIos" href="https://github.com/computerengineer1/Stealth-chess/actions" target="_blank" class="btn-download-app ios">
+                            <span class="icon">🍏</span>
+                            <div class="text">
+                                <strong data-i18n="dl_ios_title">تحميل ملف الآيفون (IPA)</strong>
+                                <small data-i18n="dl_ios_sub">StealthChessHelper.ipa (v1.2)</small>
+                            </div>
+                            <span class="arrow-dl">⬇️</span>
+                        </a>
+
+                        <a id="btnDownloadPc" href="https://github.com/computerengineer1/Stealth-chess" target="_blank" class="btn-download-app pc">
+                            <span class="icon">💻</span>
+                            <div class="text">
+                                <strong data-i18n="dl_pc_title">تحميل نسخة الكمبيوتر (ZIP/EXE)</strong>
+                                <small data-i18n="dl_pc_sub">Main.exe + Chrome Extension</small>
+                            </div>
+                            <span class="arrow-dl">⬇️</span>
+                        </a>
+
+                        <button type="button" class="btn-download-receipt" onclick="downloadReceiptTxt()">
+                            <span class="icon">📄</span>
+                            <span data-i18n="btn_save_receipt">حفظ بيانات التفعيل والإرشادات كملف (Receipt.txt)</span>
+                        </button>
+                    </div>
+
+                    <!-- Step-by-Step Installation Guides (Accordion/Tabs) -->
+                    <div class="setup-guides-container">
+                        <div class="guides-tabs">
+                            <button id="tabGuideIos" class="guide-tab active" onclick="switchGuide('ios')">
+                                🍏 <span data-i18n="guide_tab_ios">دليل تشغيل الآيفون</span>
+                            </button>
+                            <button id="tabGuidePc" class="guide-tab" onclick="switchGuide('pc')">
+                                💻 <span data-i18n="guide_tab_pc">دليل تشغيل الكمبيوتر</span>
+                            </button>
+                        </div>
+
+                        <!-- Guide iOS Content -->
+                        <div id="guideContentIos" class="guide-content-panel">
+                            <div class="guide-step">
+                                <span class="step-num">1</span>
+                                <div class="step-details">
+                                    <h4 data-i18n="ios_step1_h">تثبيت ملف الـ IPA على الآيفون:</h4>
+                                    <p data-i18n="ios_step1_p">قم بفتح موقع <strong>ESign</strong> أو <strong>Scarlet</strong> من متصفح Safari على هاتفك، أو استخدم برنامج <strong>Sideloadly</strong> عبر الكمبيوتر. قم باستيراد ملف <code>StealthChessHelper.ipa</code> واضغط تثبيت (Install).</p>
+                                </div>
+                            </div>
+                            <div class="guide-step">
+                                <span class="step-num">2</span>
+                                <div class="step-details">
+                                    <h4 data-i18n="ios_step2_h">تفعيل مفتاح الترخيص:</h4>
+                                    <p data-i18n="ios_step2_p">افتح تطبيق <strong>Stealth Chess Helper</strong> من شاشة هاتفك، الصق مفتاح ترخيصك الظاهر في الأعلى، ثم اضغط <strong>Verify &amp; Activate</strong> ليتم فتح لوحة التحكم فوراً.</p>
+                                </div>
+                            </div>
+                            <div class="guide-step">
+                                <span class="step-num">3</span>
+                                <div class="step-details">
+                                    <h4 data-i18n="ios_step3_h">بدء اللعب والتخفي:</h4>
+                                    <p data-i18n="ios_step3_p">اضغط على زر <strong>Start Assistant Bot</strong>. سيتم فتح Chess.com مباشرة داخل المتصفح السري المدمج، وستظهر الأسهم التكتيكية الخضراء والصفراء فوق القطع تلقائياً دون أن يراها خصمك أو مسجل الشاشة!</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Guide PC Content -->
+                        <div id="guideContentPc" class="guide-content-panel hidden">
+                            <div class="guide-step">
+                                <span class="step-num">1</span>
+                                <div class="step-details">
+                                    <h4 data-i18n="pc_step1_h">تفعيل إضافة المتصفح (Chrome Extension):</h4>
+                                    <p data-i18n="pc_step1_p">افتح متصفح كروم على الرابط <code>chrome://extensions/</code>، قم بتفعيل <strong>Developer Mode</strong>، واضغط على <strong>Load unpacked</strong> واختر مجلد <code>extension</code>.</p>
+                                </div>
+                            </div>
+                            <div class="guide-step">
+                                <span class="step-num">2</span>
+                                <div class="step-details">
+                                    <h4 data-i18n="pc_step2_h">تشغيل البرنامج وتفعيل المفتاح:</h4>
+                                    <p data-i18n="pc_step2_p">شغّل ملف <code>main.exe</code>، الصق مفتاح التفعيل واضغط Activate. اضغط زر معايرة الرقعة (Calibrate) وحدد رقعة الشطرنج على شاشتك بدقة.</p>
+                                </div>
+                            </div>
+                            <div class="guide-step">
+                                <span class="step-num">3</span>
+                                <div class="step-details">
+                                    <h4 data-i18n="pc_step3_h">بدء المباراة:</h4>
+                                    <p data-i18n="pc_step3_p">ابدأ مباراتك على Chess.com واضغط اختصار الكيبورد <code>Ctrl + Shift + H</code> لبدء وإيقاف البوت. الأسهم ستظهر فوق الرقعة وهي محمية تماماً من برامج الستريم والتسجيل.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="delivery-modal-footer">
+                    <button class="btn-primary-close" onclick="closeSuccessHub()" data-i18n="btn_done">تم، شكراً لك! ♟️</button>
+                </div>
             </div>
         </div>
     </main>
 
-    <footer>
-        <p>© 2026 Stealth Chess Bot. جميع الحقوق محفوظة.</p>
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="container footer-container">
+            <div class="footer-left">
+                <div class="footer-logo">
+                    <img src="assets/logo.png" alt="Logo" class="mini-logo" onerror="this.src='logo.png'">
+                    <span>STEALTH CHESS ASSISTANT</span>
+                </div>
+                <p class="footer-copy">© 2026 Stealth Chess Helper. All rights reserved. Designed for professional players.</p>
+            </div>
+            <div class="footer-right">
+                <div class="security-badges">
+                    <span>🔒 SSL 256-Bit Encrypted</span>
+                    <span>⚡ Instant Blockchain Fulfillment</span>
+                    <span>🛡️ Undetectable Human-Play</span>
+                </div>
+            </div>
+        </div>
     </footer>
+
+    <!-- Toast Notification Element -->
+    <div id="toastNotification" class="toast-popup hidden"></div>
 
     <script src="script.js"></script>
 </body>
