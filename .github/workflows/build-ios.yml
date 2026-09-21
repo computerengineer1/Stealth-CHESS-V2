@@ -9,6 +9,9 @@ jobs:
   build:
     runs-on: macos-14  # Apple Silicon M1 runner (faster)
     timeout-minutes: 30
+    permissions:
+      contents: write
+
 
     steps:
     - name: Checkout repository
@@ -80,3 +83,18 @@ jobs:
         name: StealthChessHelper-Unsigned-IPA
         path: mobile_app/ios/App/StealthChessHelper.ipa
         retention-days: 90
+
+    - name: Create or Update GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v1.2.0
+        name: "Stealth Chess Helper v1.2.0"
+        body: |
+          Official Release for Stealth Chess Helper:
+          - Direct iOS IPA: StealthChessHelper.ipa
+        files: mobile_app/ios/App/StealthChessHelper.ipa
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

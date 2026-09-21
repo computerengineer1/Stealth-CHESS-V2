@@ -365,37 +365,35 @@
                             </div>
                         </div>
 
-                        <!-- Optional Device ID Input -->
-                        <div class="input-field-group">
-                            <label class="field-label">
-                                <span data-i18n="device_id_optional">رمز جهازك (اختياري لقفل الترخيص):</span>
-                                <small class="text-dim" data-i18n="device_id_hint">(MOB-xxxx للآيفون أو اتركه فارغاً)</small>
-                            </label>
-                            <input type="text" id="userDeviceId" placeholder="مثال: MOB-A1B2-C3D4 أو اتركه فارغاً">
+                        <!-- 1-Click Pay with Trust Wallet Mobile Deep Link -->
+                        <div class="direct-pay-row">
+                            <a id="btnDeepLinkTrust" href="#" class="btn-trust-wallet-app">
+                                <span class="trust-wallet-shield">🛡️</span>
+                                <span data-i18n="btn_open_trust">الدفع المباشر عبر تطبيق Trust Wallet</span>
+                            </a>
                         </div>
 
-                        <!-- Transaction Hash (TxID) Input -->
-                        <div class="input-field-group">
-                            <label class="field-label">
-                                <span data-i18n="txid_label">رقم العملية (Transaction Hash / TxID):</span>
-                                <span class="required-star">*</span>
-                            </label>
-                            <input type="text" id="txHashInput" placeholder="الصق الـ Transaction ID هنا بعد التحويل" autocomplete="off">
-                            <small class="field-help" data-i18n="txid_help">تجد رمز العملية (TxID) في تفاصيل الحوالة داخل تطبيق Trust Wallet.</small>
+                        <!-- Auto-Device Lock Guarantee Badge -->
+                        <div class="auto-protect-notice">
+                            <div class="protect-icon">🔒</div>
+                            <div class="protect-info">
+                                <strong data-i18n="auto_protect_title">حماية وقفل تلقائي للجهاز (1-Device Auto Lock)</strong>
+                                <p data-i18n="auto_protect_desc">لا حاجة لإدخال أي رمز جهاز؛ سيرتبط مفتاحك تلقائياً بجهازك عند أول تشغيل لمنع استخدامه أو مشاركته مع أي شخص آخر.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Verification Action & Live Polling Status -->
+                <!-- Verification Action & Instant Delivery -->
                 <div class="modal-footer-actions">
                     <button id="verifyPaymentBtn" class="btn-verify-payment" onclick="verifyAndActivatePayment()">
-                        <span class="btn-icon">⚡</span>
-                        <span id="verifyBtnText" data-i18n="btn_verify_payment">تأكيد الدفع واستخراج الترخيص فوراً</span>
+                        <span class="btn-icon">🚀</span>
+                        <span id="verifyBtnText" data-i18n="btn_verify_payment">أكملت التحويل، استلم الملف والمفتاح فوراً</span>
                     </button>
                     
                     <div id="paymentStatusBox" class="status-live-box hidden">
                         <div class="loader-spinner"></div>
-                        <span id="paymentStatusText">جاري فحص شبكة TRON وتأكيد الحوالة...</span>
+                        <span id="paymentStatusText">جاري التحقق وتوليد ترخيصك الحصري وتجهيز الملفات...</span>
                     </div>
                 </div>
             </div>
@@ -443,7 +441,7 @@
                 <!-- Direct Downloads & Dynamic Setup Guide -->
                 <div class="delivery-downloads-wrap">
                     <div class="download-buttons-group">
-                        <a id="btnDownloadIos" href="https://github.com/computerengineer1/Stealth-chess/actions" target="_blank" class="btn-download-app ios">
+                        <a id="btnDownloadIos" href="https://github.com/computerengineer1/Stealth-chess/releases/download/v1.2.0/StealthChessHelper.ipa" download="StealthChessHelper.ipa" class="btn-download-app ios">
                             <span class="icon">🍏</span>
                             <div class="text">
                                 <strong data-i18n="dl_ios_title">تحميل ملف الآيفون (IPA)</strong>
@@ -452,7 +450,7 @@
                             <span class="arrow-dl">⬇️</span>
                         </a>
 
-                        <a id="btnDownloadPc" href="https://github.com/computerengineer1/Stealth-chess" target="_blank" class="btn-download-app pc">
+                        <a id="btnDownloadPc" href="downloads/StealthChess_PC.zip" download="StealthChess_PC.zip" class="btn-download-app pc">
                             <span class="icon">💻</span>
                             <div class="text">
                                 <strong data-i18n="dl_pc_title">تحميل نسخة الكمبيوتر (ZIP/EXE)</strong>

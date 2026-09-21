@@ -48,6 +48,39 @@ def get_hwid() -> str:
     return f"{h[0:4]}-{h[4:8]}-{h[8:12]}-{h[12:16]}"
 
 
+def compute_checksum(prefix: str, c1: str, c2: str, secret: str) -> str:
+    comb = f"{prefix}-{c1}-{c2}:{secret}"
+    h = 0
+    for ch in comb:
+        h = ((h * 31) + ord(ch)) & 0xFFFFFFFF
+    return f"{(h & 0xFFFF):04X}"
+
+def verify_cryptographic_key(key: str, secret: str):
+    parts = key.split('-')
+    if len(parts) != 4:
+        return None
+    prefix, c1, c2, checksum = parts
+    prefix = prefix.upper()
+    if prefix not in ["MON", "TRM", "LFT", "TRL"]:
+        return None
+    expected_checksum = compute_checksum(prefix, c1.upper(), c2.upper(), secret)
+    if checksum.upper() != expected_checksum:
+        return None
+    
+    tier_str = "Monthly"
+    duration_days = 30
+    if prefix == "TRM":
+        tier_str = "3 Months"
+        duration_days = 90
+    elif prefix == "LFT":
+        tier_str = "Lifetime"
+        duration_days = 36500
+    elif prefix == "TRL":
+        tier_str = "Trial"
+        duration_days = 1
+    return {"valid": True, "tier": tier_str, "duration_days": duration_days}
+
+
 class LicenseManager:
     """
     Manages license validation for the Chess Bot.
@@ -96,23 +129,65 @@ class LicenseManager:
 
     def validate_key(self, key: str) -> bool:
         """
-        Validates the license key against the encrypted remote database.
-        Includes a local mock mode for development and testing.
+        Validates the license key against cryptographic signature or remote database.
+        Automatically binds the key to this machine on first run.
         """
-        key = key.strip()
+        key = key.strip().upper()
         if not key:
             self.error_message = "Key cannot be empty"
             self.is_valid = False
             return False
 
+        # --- 1. Instant Cryptographic Validation & PC Hardware Auto-Lock ---
+        crypto_res = verify_cryptographic_key(key, SECRET_KEY)
+        if crypto_res and crypto_res["valid"]:
+            current_hwid = get_hwid()
+            hwid_file = os.path.join(os.environ.get("APPDATA", "."), "stealth_chess_hwid.lock")
+            locks = {}
+            if os.path.exists(hwid_file):
+                try:
+                    with open(hwid_file, "r", encoding="utf-8") as f:
+                        locks = json.load(f)
+                except Exception:
+                    locks = {}
+            
+            key_entry = locks.get(key)
+            now_ts = datetime.datetime.now().timestamp()
+            if not key_entry:
+                # First run on this PC -> Lock to this machine permanently!
+                locks[key] = {
+                    "hwid": current_hwid,
+                    "activated_at": now_ts
+                }
+                try:
+                    with open(hwid_file, "w", encoding="utf-8") as f:
+                        json.dump(locks, f)
+                except Exception:
+                    pass
+                activated_at = now_ts
+            else:
+                bound_hwid = key_entry.get("hwid", "")
+                if bound_hwid and bound_hwid.upper() != current_hwid.upper():
+                    self.error_message = "Device lock mismatch. Key is registered to another computer. (المفتاح مسجل على كمبيوتر آخر)"
+                    self.is_valid = False
+                    return False
+                activated_at = key_entry.get("activated_at", now_ts)
+            
+            # Check expiration
+            days_elapsed = (now_ts - activated_at) / (3600 * 24)
+            if days_elapsed > crypto_res["duration_days"]:
+                self.error_message = f"Subscription expired ({crypto_res['tier']})"
+                self.is_valid = False
+                return False
+                
+            expiry_date_obj = datetime.date.today() + datetime.timedelta(days=max(0, int(crypto_res["duration_days"] - days_elapsed)))
+            self.expiry_date = "2099-12-31" if crypto_res["tier"] == "Lifetime" else expiry_date_obj.strftime("%Y-%m-%d")
+            self.tier = crypto_res["tier"]
+            self.is_valid = True
+            self.save_local_key(key)
+            return True
 
-
-        if not self.api_url:
-            self.error_message = "No online license database configured. Configure LICENSE_API_URL in config.py."
-            self.is_valid = False
-            return False
-
-        # --- Online Database Validation ---
+        # --- 2. Remote Database Fallback ---
         try:
             # Fetch the encrypted database payload from the raw Pastebin/Gist URL
             req = urllib.request.Request(

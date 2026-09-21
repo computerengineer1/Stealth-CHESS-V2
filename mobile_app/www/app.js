@@ -129,15 +129,77 @@ function xorEncryptDecrypt(data, key) {
     return output.join("");
 }
 
+// Cryptographic Key Verification & Auto-Lock Helper
+function verifyCryptographicKey(key, secret) {
+    const parts = key.split('-');
+    if (parts.length !== 4) return null;
+    const [prefix, c1, c2, checksum] = parts;
+    if (!["MON", "TRM", "LFT", "TRL"].includes(prefix.toUpperCase())) return null;
+    
+    const comb = `${prefix.toUpperCase()}-${c1.toUpperCase()}-${c2.toUpperCase()}:${secret}`;
+    let h = 0;
+    for (let i = 0; i < comb.length; i++) {
+        h = (Math.imul(h, 31) + comb.charCodeAt(i)) >>> 0;
+    }
+    const expectedChecksum = ("0000" + (h & 0xFFFF).toString(16).toUpperCase()).slice(-4);
+    if (checksum.toUpperCase() !== expectedChecksum) return null;
+
+    let tierStr = "Monthly";
+    let durationDays = 30;
+    if (prefix.toUpperCase() === "TRM") { tierStr = "3 Months"; durationDays = 90; }
+    else if (prefix.toUpperCase() === "LFT") { tierStr = "Lifetime"; durationDays = 36500; }
+    else if (prefix.toUpperCase() === "TRL") { tierStr = "Trial"; durationDays = 1; }
+
+    return { valid: true, tier: tierStr, durationDays: durationDays };
+}
+
 // Verify Subscription License Key
 async function verifyLicense(key, forceSave = true) {
-    key = key.trim();
+    key = key.trim().toUpperCase();
     if (!key) {
         return { success: false, message: "Key cannot be empty (المفتاح مطلوب)" };
     }
 
+    // --- 1. Instant Cryptographic Verification & 1-Device Auto-Lock ---
+    const cryptoResult = verifyCryptographicKey(key, Config.SECRET_KEY);
+    if (cryptoResult && cryptoResult.valid) {
+        const currentDeviceId = getDeviceId();
+        const lockStorageKey = "device_lock_" + key;
+        const activatedStorageKey = "date_activated_" + key;
 
+        let lockedDevice = localStorage.getItem(lockStorageKey);
+        if (!lockedDevice) {
+            // First run: Permanently lock key to this phone!
+            localStorage.setItem(lockStorageKey, currentDeviceId);
+            localStorage.setItem(activatedStorageKey, Date.now().toString());
+            lockedDevice = currentDeviceId;
+        } else if (lockedDevice.toUpperCase() !== currentDeviceId.toUpperCase()) {
+            return { 
+                success: false, 
+                message: "Device lock mismatch. Key is registered to another phone. (هذا المفتاح مقفل على جهاز آخر ولا يمكن استخدامه)" 
+            };
+        }
 
+        // Check expiration from first activation
+        const activatedTimestamp = parseInt(localStorage.getItem(activatedStorageKey)) || Date.now();
+        const elapsedDays = (Date.now() - activatedTimestamp) / (1000 * 60 * 60 * 24);
+        if (elapsedDays > cryptoResult.durationDays) {
+            return { success: false, message: "Subscription expired (انتهت فترة الاشتراك)" };
+        }
+
+        const expiryDateObj = new Date(activatedTimestamp + (cryptoResult.durationDays * 24 * 60 * 60 * 1000));
+        const expiryStr = cryptoResult.tier === "Lifetime" ? "2099-12-31" : expiryDateObj.toISOString().split('T')[0];
+
+        appState.isValidLicense = true;
+        appState.tier = cryptoResult.tier;
+        appState.expiryDate = expiryStr;
+        appState.licenseKey = key;
+
+        if (forceSave) localStorage.setItem("license_key", key);
+        return { success: true };
+    }
+
+    // --- 2. Fallback: Remote Database Verification ---
     try {
         const response = await fetch(Config.LICENSE_API_URL, { cache: "no-store" });
         if (!response.ok) {

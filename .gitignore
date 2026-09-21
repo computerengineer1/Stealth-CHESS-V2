@@ -9,6 +9,8 @@ build/
 dist/
 mobile_app/ios/App/build/
 mobile_app/ios/App/Pods/
+web_shop/downloads/
+
 
 # Ignore Package Manager directories
 node_modules/

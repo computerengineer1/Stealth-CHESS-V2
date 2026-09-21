@@ -1538,3 +1538,57 @@ body {
         text-align: center;
     }
 }
+
+/* Direct Trust Wallet Payment & Auto-Protect Styles */
+.direct-pay-row {
+    margin-top: 4px;
+}
+
+.btn-trust-wallet-app {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: linear-gradient(135deg, #0500ff, #00b4d8);
+    color: #fff;
+    padding: 12px 18px;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    font-size: 0.92rem;
+    font-weight: 800;
+    transition: all 0.25s ease;
+    box-shadow: 0 4px 15px rgba(0, 180, 216, 0.35);
+}
+
+.btn-trust-wallet-app:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 180, 216, 0.55);
+}
+
+.auto-protect-notice {
+    display: flex;
+    gap: 12px;
+    background: rgba(0, 255, 136, 0.06);
+    border: 1px solid rgba(0, 255, 136, 0.25);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    margin-top: 6px;
+}
+
+.auto-protect-notice .protect-icon {
+    font-size: 1.3rem;
+}
+
+.auto-protect-notice .protect-info strong {
+    display: block;
+    font-size: 0.84rem;
+    color: var(--success-green);
+    margin-bottom: 2px;
+}
+
+.auto-protect-notice .protect-info p {
+    font-size: 0.76rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
