@@ -9,8 +9,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <!-- QR Code Generator Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="theme-obsidian">
@@ -43,7 +41,7 @@
                     <span class="lang-icon">🌐</span>
                     <span id="langLabel">English</span>
                 </button>
-                <a href="#pricing" class="btn-glow-sm" data-i18n="btn_get_started">اشترك الآن ⚡</a>
+                <a href="https://t.me/owner_1_1" target="_blank" class="btn-glow-sm" data-i18n="btn_get_started">تواصل مع المالك ⚡</a>
             </div>
         </div>
     </header>
@@ -87,8 +85,8 @@
                     </div>
 
                     <div class="hero-cta-group">
-                        <a href="#pricing" class="btn-fire-hero" data-i18n="hero_cta_buy">ابدأ الفوز فوراً ♟️</a>
-                        <a href="#showcase" class="btn-glass-hero" data-i18n="hero_cta_demo">شاهد كيف يعمل 🔍</a>
+                        <a href="#pricing" class="btn-fire-hero" data-i18n="hero_cta_buy">اشترك واحصل على المفتاح ♟️</a>
+                        <a href="#downloads" class="btn-glass-hero" data-i18n="hero_cta_demo">تحميل التطبيق مجاناً 📥</a>
                     </div>
 
                     <div class="hero-stats">
@@ -251,8 +249,8 @@
                             <li><span class="icon">🔒</span> <span data-i18n="perk_duration_30">صلاحية تفعيل لمدة 30 يوماً كاملة</span></li>
                         </ul>
 
-                        <button class="btn-card-action" onclick="initiateCheckout('Monthly', 10, 'MON')">
-                            <span data-i18n="btn_buy_monthly">اشترك شهرياً ($10) 🚀</span>
+                        <button class="btn-card-action" onclick="contactOwnerForPlan('Monthly', 10)">
+                            <span data-i18n="btn_buy_monthly">طلب الاشتراك الشهري ($10) 💬</span>
                         </button>
                     </div>
 
@@ -277,8 +275,8 @@
                             <li><span class="icon">🔒</span> <span data-i18n="perk_duration_90">صلاحية تفعيل لمدة 90 يوماً كاملة</span></li>
                         </ul>
 
-                        <button class="btn-card-action fire" onclick="initiateCheckout('3 Months', 25, 'TRM')">
-                            <span data-i18n="btn_buy_3m">اشترك لـ 3 أشهر ($25) ⚡</span>
+                        <button class="btn-card-action fire" onclick="contactOwnerForPlan('3 Months', 25)">
+                            <span data-i18n="btn_buy_3m">طلب اشتراك 3 أشهر ($25) 💬</span>
                         </button>
                     </div>
 
@@ -303,233 +301,221 @@
                             <li><span class="icon">👑</span> <span data-i18n="perk_life_lock">إمكانية نقل المفتاح بين أجهزتك عند الترقية</span></li>
                         </ul>
 
-                        <button class="btn-card-action vip-btn" onclick="initiateCheckout('Lifetime', 50, 'LFT')">
-                            <span data-i18n="btn_buy_life">امتلك مدى الحياة ($50) 👑</span>
+                        <button class="btn-card-action vip-btn" onclick="contactOwnerForPlan('Lifetime', 50)">
+                            <span data-i18n="btn_buy_life">طلب مدى الحياة ($50) 👑</span>
                         </button>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Checkout & Payment Drawer Modal -->
-        <div id="paymentModal" class="checkout-modal-backdrop hidden">
-            <div class="checkout-modal">
-                <button class="modal-close-btn" onclick="closeCheckout()">&times;</button>
-                
-                <div class="modal-header">
-                    <div class="trust-badge">
-                        <span class="trust-icon">🛡️</span>
-                        <span>Trust Wallet / TRON Network (TRC20)</span>
-                    </div>
-                    <h2 class="modal-title" data-i18n="modal_payment_title">بوابة الدفع والتفعيل التلقائي</h2>
-                    <p class="modal-subtitle" data-i18n="modal_payment_subtitle">قم بإرسال قيمة الباقة عبر محفظة Trust Wallet أو أي محفظة تدعم USDT (TRC20)</p>
+        <!-- Dedicated Free Downloads & Guides Section -->
+        <section id="downloads" class="downloads-section">
+            <div class="container">
+                <div class="section-heading-center">
+                    <span class="section-tag" data-i18n="dl_section_tag">التحميل المباشر والتثبيت</span>
+                    <h2 class="section-title" data-i18n="dl_section_title">حمّل التطبيق لجهازك وابدأ التثبيت مجاناً</h2>
+                    <p class="section-subtitle" data-i18n="dl_section_subtitle">الملفات متاحة للتحميل المباشر الآن. عند الضغط سيبدأ التنزيل فوراً، وتستطيع استلام مفتاح التفعيل عبر تيليجرام من المالك.</p>
                 </div>
 
-                <!-- Order Summary Card -->
-                <div class="order-summary-box">
-                    <div class="summary-row">
-                        <span class="summary-label" data-i18n="sum_plan">الباقة المختارة:</span>
-                        <strong id="modalPlanName" class="summary-val">Monthly</strong>
+                <div class="downloads-grid">
+                    <!-- Option 1: iOS iPhone IPA -->
+                    <div class="download-card ios-card">
+                        <div class="dl-card-badge" data-i18n="dl_ipa_badge">للآيفون والآيباد (iOS)</div>
+                        <div class="dl-platform-icon">🍏</div>
+                        <h3>Stealth Chess Helper (iOS)</h3>
+                        <p class="dl-version-tag">Version 1.2 • 10.8 MB • Stockfish 18 WASM</p>
+                        
+                        <div class="dl-card-divider"></div>
+
+                        <ul class="dl-highlights">
+                            <li><span class="icon">✅</span> <span data-i18n="dl_ios_perk1">بدون جيلبريك (يدعم iOS 13 وحتى أحدث إصدارات iOS)</span></li>
+                            <li><span class="icon">✅</span> <span data-i18n="dl_ios_perk2">تثبيت سهل وسريع عبر Scarlet أو ESign أو Sideloadly</span></li>
+                            <li><span class="icon">✅</span> <span data-i18n="dl_ios_perk3">متصفح مدمج يحقن المحرك مباشرة داخل Chess.com</span></li>
+                            <li><span class="icon">🔒</span> <span data-i18n="dl_ios_perk4">محمي بمفتاح ترخيص حصري يرسله المالك بعد التواصل</span></li>
+                        </ul>
+
+                        <a href="downloads/StealthChessHelper.ipa" download="StealthChessHelper.ipa" class="btn-download-primary ios dl-link-ipa" onclick="triggerAppDownload('ios', event)">
+                            <span class="dl-icon">⬇️</span>
+                            <span data-i18n="dl_ipa_btn">تحميل ملف IPA (10.8 MB) 🍏</span>
+                        </a>
+
+                        <div class="dl-card-guide">
+                            <strong data-i18n="dl_guide_quick_title">طريقة التثبيت السريعة:</strong>
+                            <p data-i18n="dl_guide_quick_ios">قم بتحميل ملف الـ IPA، وافتحه عبر تطبيق ESign أو Scarlet على هاتفك، أو استخدم Sideloadly من الكمبيوتر لتثبيته خلال دقائق.</p>
+                        </div>
                     </div>
-                    <div class="summary-row">
-                        <span class="summary-label" data-i18n="sum_platform">المنصة المستهدفة:</span>
-                        <strong id="modalPlatform" class="summary-val">iPhone (iOS IPA)</strong>
-                    </div>
-                    <div class="summary-row highlight">
-                        <span class="summary-label" data-i18n="sum_amount">المبلغ المطلوب بدقة:</span>
-                        <div class="amount-tag">
-                            <span id="modalAmount">10</span>
-                            <span class="unit">USDT</span>
+
+                    <!-- Option 2: Windows PC EXE/ZIP -->
+                    <div class="download-card pc-card">
+                        <div class="dl-card-badge purple" data-i18n="dl_pc_badge">للكمبيوتر (Windows PC)</div>
+                        <div class="dl-platform-icon">💻</div>
+                        <h3>Stealth Chess Pro (Windows)</h3>
+                        <p class="dl-version-tag">Version 2.0 • 107 MB • Main.exe + Chrome Ext</p>
+                        
+                        <div class="dl-card-divider"></div>
+
+                        <ul class="dl-highlights">
+                            <li><span class="icon">✅</span> <span data-i18n="dl_pc_perk1">متوافق مع Windows 10 و Windows 11 (64-bit)</span></li>
+                            <li><span class="icon">✅</span> <span data-i18n="dl_pc_perk2">شاشة شفافة فوق اللعبة ومخفية تماماً عن بث الديسكورد والزووم</span></li>
+                            <li><span class="icon">✅</span> <span data-i18n="dl_pc_perk3">اختصارات سريعة (Ctrl+Shift+H) للبدء والإيقاف اللحظي</span></li>
+                            <li><span class="icon">🔒</span> <span data-i18n="dl_pc_perk4">محمي بمفتاح ترخيص حصري يرسله المالك بعد التواصل</span></li>
+                        </ul>
+
+                        <a href="downloads/StealthChess_PC.zip" download="StealthChess_PC.zip" class="btn-download-primary pc dl-link-pc" onclick="triggerAppDownload('pc', event)">
+                            <span class="dl-icon">⬇️</span>
+                            <span data-i18n="dl_pc_btn">تحميل حزمة PC ZIP (107 MB) 💻</span>
+                        </a>
+
+                        <div class="dl-card-guide">
+                            <strong data-i18n="dl_guide_quick_title">طريقة التثبيت السريعة:</strong>
+                            <p data-i18n="dl_guide_quick_pc">فك الضغط عن ملف ZIP، حمّل مجلد extension في متصفح كروم (Developer Mode)، ثم شغّل ملف main.exe وأدخل مفتاحك.</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Crypto Payment Instructions -->
-                <div class="payment-steps-container">
-                    <div class="wallet-qr-section">
-                        <div id="qrcode" class="qrcode-wrapper"></div>
-                        <span class="qr-note" data-i18n="qr_scan_note">امسح الكود عبر Trust Wallet أوBinance</span>
+                <!-- License Notice Alert Box -->
+                <div class="download-activation-banner">
+                    <div class="banner-icon">🔑</div>
+                    <div class="banner-content">
+                        <h4 data-i18n="dl_banner_title">كيف يعمل نظام التفعيل بالمفتاح؟</h4>
+                        <p data-i18n="dl_banner_desc">
+                            يمكنك تنزيل وتثبيت الملفات أعلاه على هاتفك أو كمبيوترك في أي وقت مجاناً. عند فتح البرنامج لأول مرة سيطلب منك مفتاح الترخيص (License Key). للحصول على مفتاحك، تواصل مع المالك مباشرة على تيليجرام <a href="https://t.me/owner_1_1" target="_blank" class="tme-link">@owner_1_1</a> وسيرسل لك المفتاح في المحادثة مباشرة.
+                        </p>
+                    </div>
+                    <div class="banner-action">
+                        <button type="button" class="btn-fire-hero sm" onclick="openTelegramOwnerChat()" data-i18n="btn_get_key_now">تواصل عبر تيليجرام للحصول على المفتاح ⚡</button>
+                    </div>
+                </div>
+
+                <!-- Step-by-Step Installation Guides -->
+                <div class="setup-guides-container" style="margin-top: 50px;">
+                    <div class="guides-tabs">
+                        <button id="tabGuideIos" class="guide-tab active" onclick="switchGuide('ios')">
+                            🍏 <span data-i18n="guide_tab_ios">دليل تشغيل الآيفون</span>
+                        </button>
+                        <button id="tabGuidePc" class="guide-tab" onclick="switchGuide('pc')">
+                            💻 <span data-i18n="guide_tab_pc">دليل تشغيل الكمبيوتر</span>
+                        </button>
                     </div>
 
-                    <div class="wallet-details-section">
-                        <div class="input-field-group">
-                            <label class="field-label">
-                                <span data-i18n="wallet_addr_label">عنوان المحفظة (USDT - TRC20):</span>
-                                <span class="network-tag">شبكة TRON فقط</span>
-                            </label>
-                            <div class="copy-input-row">
-                                <input type="text" id="walletAddressInput" value="TEfH3nbCCJ8eDjC3Z4wwoynWvdtfPaCkB5" readonly>
-                                <button type="button" class="btn-copy-addr" onclick="copyWalletAddress()">
-                                    <span id="copyAddrText" data-i18n="btn_copy">نسخ 📋</span>
-                                </button>
+                    <!-- Guide iOS Content -->
+                    <div id="guideContentIos" class="guide-content-panel">
+                        <div class="guide-step">
+                            <span class="step-num">1</span>
+                            <div class="step-details">
+                                <h4 data-i18n="ios_step1_h">تثبيت ملف الـ IPA على الآيفون:</h4>
+                                <p data-i18n="ios_step1_p">قم بفتح موقع <strong>ESign</strong> أو <strong>Scarlet</strong> من متصفح Safari على هاتفك، أو استخدم برنامج <strong>Sideloadly</strong> عبر الكمبيوتر. قم باستيراد ملف <code>StealthChessHelper.ipa</code> واضغط تثبيت (Install).</p>
                             </div>
                         </div>
-
-                        <!-- 1-Click Pay with Trust Wallet Mobile Deep Link -->
-                        <div class="direct-pay-row">
-                            <a id="btnDeepLinkTrust" href="#" class="btn-trust-wallet-app">
-                                <span class="trust-wallet-shield">🛡️</span>
-                                <span data-i18n="btn_open_trust">الدفع المباشر عبر تطبيق Trust Wallet</span>
-                            </a>
+                        <div class="guide-step">
+                            <span class="step-num">2</span>
+                            <div class="step-details">
+                                <h4 data-i18n="ios_step2_h">تفعيل مفتاح الترخيص:</h4>
+                                <p data-i18n="ios_step2_p">افتح تطبيق <strong>Stealth Chess Helper</strong> من شاشة هاتفك، الصق مفتاح ترخيصك الذي استلمته من المالك على تيليجرام (@owner_1_1)، ثم اضغط <strong>Verify &amp; Activate</strong> ليتم فتح لوحة التحكم فوراً.</p>
+                            </div>
                         </div>
-
-                        <!-- Auto-Device Lock Guarantee Badge -->
-                        <div class="auto-protect-notice">
-                            <div class="protect-icon">🔒</div>
-                            <div class="protect-info">
-                                <strong data-i18n="auto_protect_title">حماية وقفل تلقائي للجهاز (1-Device Auto Lock)</strong>
-                                <p data-i18n="auto_protect_desc">لا حاجة لإدخال أي رمز جهاز؛ سيرتبط مفتاحك تلقائياً بجهازك عند أول تشغيل لمنع استخدامه أو مشاركته مع أي شخص آخر.</p>
+                        <div class="guide-step">
+                            <span class="step-num">3</span>
+                            <div class="step-details">
+                                <h4 data-i18n="ios_step3_h">بدء اللعب والتخفي:</h4>
+                                <p data-i18n="ios_step3_p">اضغط على زر <strong>Start Assistant Bot</strong>. سيتم فتح Chess.com مباشرة داخل المتصفح السري المدمج، وستظهر الأسهم التكتيكية الخضراء والصفراء فوق القطع تلقائياً دون أن يراها خصمك أو مسجل الشاشة!</p>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Verification Action & Instant Delivery -->
-                <div class="modal-footer-actions">
-                    <button id="verifyPaymentBtn" class="btn-verify-payment" onclick="verifyAndActivatePayment()">
-                        <span class="btn-icon">🚀</span>
-                        <span id="verifyBtnText" data-i18n="btn_verify_payment">أكملت التحويل، استلم الملف والمفتاح فوراً</span>
-                    </button>
-                    
-                    <div id="paymentStatusBox" class="status-live-box hidden">
-                        <div class="loader-spinner"></div>
-                        <span id="paymentStatusText">جاري التحقق وتوليد ترخيصك الحصري وتجهيز الملفات...</span>
+                    <!-- Guide PC Content -->
+                    <div id="guideContentPc" class="guide-content-panel hidden">
+                        <div class="guide-step">
+                            <span class="step-num">1</span>
+                            <div class="step-details">
+                                <h4 data-i18n="pc_step1_h">تفعيل إضافة المتصفح (Chrome Extension):</h4>
+                                <p data-i18n="pc_step1_p">افتح متصفح كروم على الرابط <code>chrome://extensions/</code>، قم بتفعيل <strong>Developer Mode</strong>، واضغط على <strong>Load unpacked</strong> واختر مجلد <code>extension</code>.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step">
+                            <span class="step-num">2</span>
+                            <div class="step-details">
+                                <h4 data-i18n="pc_step2_h">تشغيل البرنامج وتفعيل المفتاح:</h4>
+                                <p data-i18n="pc_step2_p">شغّل ملف <code>main.exe</code>، الصق مفتاح التفعيل الذي استلمته من المالك واضغط Activate. اضغط زر معايرة الرقعة (Calibrate) وحدد رقعة الشطرنج على شاشتك بدقة.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step">
+                            <span class="step-num">3</span>
+                            <div class="step-details">
+                                <h4 data-i18n="pc_step3_h">بدء المباراة:</h4>
+                                <p data-i18n="pc_step3_p">ابدأ مباراتك على Chess.com واضغط اختصار الكيبورد <code>Ctrl + Shift + H</code> لبدء وإيقاف البوت. الأسهم ستظهر فوق الرقعة وهي محمية تماماً من برامج الستريم والتسجيل.</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <!-- Success & Delivery Hub Modal -->
-        <div id="successHubModal" class="checkout-modal-backdrop hidden">
-            <div class="delivery-modal">
-                <div class="delivery-header">
-                    <div class="confetti-icon">🎉</div>
-                    <h2 class="delivery-title" data-i18n="delivery_title">تم الدفع وتوليد ترخيصك بنجاح!</h2>
-                    <p class="delivery-subtitle" data-i18n="delivery_subtitle">مرحباً بك في مجتمع النخبة. تم تسجيل وتفعيل اشتراكك بنجاح.</p>
+        <!-- Download Triggered & Activation Key Popup Modal -->
+        <div id="activationModal" class="checkout-modal-backdrop hidden">
+            <div class="checkout-modal activation-modal-box">
+                <button class="modal-close-btn" onclick="closeActivationModal()">&times;</button>
+                
+                <div class="modal-header">
+                    <div class="trust-badge dl-badge">
+                        <span class="trust-icon">📥</span>
+                        <span data-i18n="modal_dl_badge">بدأ التحميل بنجاح 📥</span>
+                    </div>
+                    <h2 class="modal-title" data-i18n="modal_dl_title">تم بدء تحميل التطبيق لجهازك! 🚀</h2>
+                    <p class="modal-subtitle" data-i18n="modal_dl_subtitle">يتم تنزيل ملف التطبيق الآن. التطبيق متاح للتثبيت، ولكن يتطلب مفتاح ترخيص حصري لبدء التشغيل.</p>
                 </div>
 
-                <!-- License Card -->
-                <div class="generated-license-card">
-                    <div class="license-top">
-                        <span class="badge-active" data-i18n="license_active">🟢 مفتاح ترخيص فعال</span>
-                        <span id="cardTierLabel" class="tier-pill">MONTHLY</span>
-                    </div>
-
-                    <div class="license-display-row">
-                        <code id="activeLicenseKey">MON-XXXX-XXXX-XXXX-XXXX</code>
-                        <button class="btn-copy-key" onclick="copyGeneratedKey()">
-                            <span id="copyKeyText" data-i18n="btn_copy">نسخ 📋</span>
-                        </button>
-                    </div>
-
-                    <div class="license-meta-row">
-                        <div>
-                            <small data-i18n="lbl_expiry">تاريخ الصلاحية:</small>
-                            <strong id="activeKeyExpiry">2026-10-21</strong>
-                        </div>
-                        <div>
-                            <small data-i18n="lbl_platform">المنصة المختارة:</small>
-                            <strong id="activeKeyPlatform">iPhone (iOS)</strong>
-                        </div>
-                        <div>
-                            <small data-i18n="lbl_txid">رقم المعاملة:</small>
-                            <strong id="activeKeyTxid" class="truncated-txid">Confirmed</strong>
+                <!-- Activation Info Card -->
+                <div class="activation-info-box">
+                    <div class="act-icon">🔑</div>
+                    <div class="act-details">
+                        <h4 data-i18n="act_box_title">كيفية استلام مفتاح التفعيل (License Key):</h4>
+                        <p data-i18n="act_box_desc">
+                            لتشغيل البوت والحصول على الأسهم التكتيكية الخفية، تحتاج لمفتاح تفعيل رسمي خاص بك.
+                            تواصل مباشرة مع المالك عبر محادثة Telegram للحصول على مفتاحك فوراً:
+                        </p>
+                        <div class="owner-highlight-pill">
+                            <span>حساب المالك الرسمي:</span>
+                            <a href="https://t.me/owner_1_1" target="_blank" class="tg-username">@owner_1_1</a>
                         </div>
                     </div>
                 </div>
 
-                <!-- Direct Downloads & Dynamic Setup Guide -->
-                <div class="delivery-downloads-wrap">
-                    <div class="download-buttons-group">
-                        <a id="btnDownloadIos" href="https://github.com/computerengineer1/Stealth-chess/releases/download/v1.2.0/StealthChessHelper.ipa" download="StealthChessHelper.ipa" class="btn-download-app ios">
-                            <span class="icon">🍏</span>
-                            <div class="text">
-                                <strong data-i18n="dl_ios_title">تحميل ملف الآيفون (IPA)</strong>
-                                <small data-i18n="dl_ios_sub">StealthChessHelper.ipa (v1.2)</small>
-                            </div>
-                            <span class="arrow-dl">⬇️</span>
-                        </a>
-
-                        <a id="btnDownloadPc" href="downloads/StealthChess_PC.zip" download="StealthChess_PC.zip" class="btn-download-app pc">
-                            <span class="icon">💻</span>
-                            <div class="text">
-                                <strong data-i18n="dl_pc_title">تحميل نسخة الكمبيوتر (ZIP/EXE)</strong>
-                                <small data-i18n="dl_pc_sub">Main.exe + Chrome Extension</small>
-                            </div>
-                            <span class="arrow-dl">⬇️</span>
-                        </a>
-
-                        <button type="button" class="btn-download-receipt" onclick="downloadReceiptTxt()">
-                            <span class="icon">📄</span>
-                            <span data-i18n="btn_save_receipt">حفظ بيانات التفعيل والإرشادات كملف (Receipt.txt)</span>
-                        </button>
+                <!-- 3 Quick Setup Steps -->
+                <div class="quick-install-steps">
+                    <div class="q-step">
+                        <span class="q-num">1</span>
+                        <div class="q-text">
+                            <strong data-i18n="q_step1_h">1. تثبيت التطبيق على جهازك:</strong>
+                            <p data-i18n="q_step1_p">افتح الملف المحمل على الآيفون (عبر Scarlet/ESign/Sideloadly) أو فك ضغط ملف الكمبيوتر وشغل main.exe.</p>
+                        </div>
                     </div>
-
-                    <!-- Step-by-Step Installation Guides (Accordion/Tabs) -->
-                    <div class="setup-guides-container">
-                        <div class="guides-tabs">
-                            <button id="tabGuideIos" class="guide-tab active" onclick="switchGuide('ios')">
-                                🍏 <span data-i18n="guide_tab_ios">دليل تشغيل الآيفون</span>
-                            </button>
-                            <button id="tabGuidePc" class="guide-tab" onclick="switchGuide('pc')">
-                                💻 <span data-i18n="guide_tab_pc">دليل تشغيل الكمبيوتر</span>
-                            </button>
+                    <div class="q-step">
+                        <span class="q-num">2</span>
+                        <div class="q-text">
+                            <strong data-i18n="q_step2_h">2. مراسلة المالك على تيليجرام:</strong>
+                            <p data-i18n="q_step2_desc">تواصل مع المالك عبر حسابه الرسمي (@owner_1_1) لطلب مفتاح التفعيل الخاص بك.</p>
                         </div>
-
-                        <!-- Guide iOS Content -->
-                        <div id="guideContentIos" class="guide-content-panel">
-                            <div class="guide-step">
-                                <span class="step-num">1</span>
-                                <div class="step-details">
-                                    <h4 data-i18n="ios_step1_h">تثبيت ملف الـ IPA على الآيفون:</h4>
-                                    <p data-i18n="ios_step1_p">قم بفتح موقع <strong>ESign</strong> أو <strong>Scarlet</strong> من متصفح Safari على هاتفك، أو استخدم برنامج <strong>Sideloadly</strong> عبر الكمبيوتر. قم باستيراد ملف <code>StealthChessHelper.ipa</code> واضغط تثبيت (Install).</p>
-                                </div>
-                            </div>
-                            <div class="guide-step">
-                                <span class="step-num">2</span>
-                                <div class="step-details">
-                                    <h4 data-i18n="ios_step2_h">تفعيل مفتاح الترخيص:</h4>
-                                    <p data-i18n="ios_step2_p">افتح تطبيق <strong>Stealth Chess Helper</strong> من شاشة هاتفك، الصق مفتاح ترخيصك الظاهر في الأعلى، ثم اضغط <strong>Verify &amp; Activate</strong> ليتم فتح لوحة التحكم فوراً.</p>
-                                </div>
-                            </div>
-                            <div class="guide-step">
-                                <span class="step-num">3</span>
-                                <div class="step-details">
-                                    <h4 data-i18n="ios_step3_h">بدء اللعب والتخفي:</h4>
-                                    <p data-i18n="ios_step3_p">اضغط على زر <strong>Start Assistant Bot</strong>. سيتم فتح Chess.com مباشرة داخل المتصفح السري المدمج، وستظهر الأسهم التكتيكية الخضراء والصفراء فوق القطع تلقائياً دون أن يراها خصمك أو مسجل الشاشة!</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Guide PC Content -->
-                        <div id="guideContentPc" class="guide-content-panel hidden">
-                            <div class="guide-step">
-                                <span class="step-num">1</span>
-                                <div class="step-details">
-                                    <h4 data-i18n="pc_step1_h">تفعيل إضافة المتصفح (Chrome Extension):</h4>
-                                    <p data-i18n="pc_step1_p">افتح متصفح كروم على الرابط <code>chrome://extensions/</code>، قم بتفعيل <strong>Developer Mode</strong>، واضغط على <strong>Load unpacked</strong> واختر مجلد <code>extension</code>.</p>
-                                </div>
-                            </div>
-                            <div class="guide-step">
-                                <span class="step-num">2</span>
-                                <div class="step-details">
-                                    <h4 data-i18n="pc_step2_h">تشغيل البرنامج وتفعيل المفتاح:</h4>
-                                    <p data-i18n="pc_step2_p">شغّل ملف <code>main.exe</code>، الصق مفتاح التفعيل واضغط Activate. اضغط زر معايرة الرقعة (Calibrate) وحدد رقعة الشطرنج على شاشتك بدقة.</p>
-                                </div>
-                            </div>
-                            <div class="guide-step">
-                                <span class="step-num">3</span>
-                                <div class="step-details">
-                                    <h4 data-i18n="pc_step3_h">بدء المباراة:</h4>
-                                    <p data-i18n="pc_step3_p">ابدأ مباراتك على Chess.com واضغط اختصار الكيبورد <code>Ctrl + Shift + H</code> لبدء وإيقاف البوت. الأسهم ستظهر فوق الرقعة وهي محمية تماماً من برامج الستريم والتسجيل.</p>
-                                </div>
-                            </div>
+                    </div>
+                    <div class="q-step">
+                        <span class="q-num">3</span>
+                        <div class="q-text">
+                            <strong data-i18n="q_step3_h">3. تفعيل المفتاح وبدء اللعب:</strong>
+                            <p data-i18n="q_step3_desc">الصق المفتاح في شاشة التفعيل واضغط Activate ليبدأ البوت بالعمل فوراً بتخفٍ تام!</p>
                         </div>
                     </div>
                 </div>
 
-                <div class="delivery-modal-footer">
-                    <button class="btn-primary-close" onclick="closeSuccessHub()" data-i18n="btn_done">تم، شكراً لك! ♟️</button>
+                <!-- Modal Actions -->
+                <div class="modal-footer-actions">
+                    <button type="button" class="btn-verify-payment telegram-action-btn" onclick="openTelegramOwnerChat()">
+                        <span class="btn-icon">💬</span>
+                        <span data-i18n="btn_modal_tg">تواصل عبر تيليجرام لاستلام مفتاحك (@owner_1_1) 💬</span>
+                    </button>
+                    <button type="button" class="btn-close-sub" onclick="closeActivationModal()" data-i18n="btn_close_sub">
+                        حسناً، فهمت
+                    </button>
                 </div>
             </div>
         </div>

@@ -25,3 +25,7 @@ __pycache__/
 openrouter_proxy.py
 start_proxy.bat
 dev_tools/bot_config.py
+key_generator.html
+generate_license.py
+stealth_profile/
+web_shop_deploy/

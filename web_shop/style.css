@@ -963,51 +963,228 @@ body {
     color: var(--text-dim);
 }
 
-/* Payment Steps Container */
-.payment-steps-container {
+/* Payment Method Tabs Navigation */
+.payment-tabs-nav {
     display: grid;
-    grid-template-columns: 190px 1fr;
-    gap: 24px;
-    align-items: flex-start;
-    margin-bottom: 24px;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
 }
 
-.wallet-qr-section {
+.method-tab-btn {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    text-align: right;
+    transition: all 0.25s ease;
+    position: relative;
+    outline: none;
+}
+
+[dir="ltr"] .method-tab-btn {
+    text-align: left;
+}
+
+.method-tab-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.25);
+    transform: translateY(-2px);
+}
+
+.method-tab-btn.active {
+    background: linear-gradient(135deg, rgba(255, 65, 108, 0.12), rgba(255, 75, 43, 0.06));
+    border-color: var(--primary-fire);
+    box-shadow: 0 0 20px rgba(255, 65, 108, 0.2);
+}
+
+.tab-badge-icon {
+    font-size: 1.6rem;
+    flex-shrink: 0;
+}
+
+.tab-btn-text {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 10px;
+    gap: 2px;
+    flex-grow: 1;
 }
 
-.qrcode-wrapper {
-    background: #fff;
-    padding: 12px;
+.tab-btn-text strong {
+    color: var(--text-main);
+    font-size: 0.95rem;
+    font-weight: 800;
+}
+
+.tab-btn-text small {
+    color: var(--text-muted);
+    font-size: 0.76rem;
+}
+
+.tab-status-pill {
+    position: absolute;
+    top: -8px;
+    left: 12px;
+    font-size: 0.68rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: rgba(0, 229, 255, 0.18);
+    color: var(--neon-cyan);
+    border: 1px solid rgba(0, 229, 255, 0.35);
+}
+
+[dir="ltr"] .tab-status-pill {
+    left: auto;
+    right: 12px;
+}
+
+.tab-status-pill.popular {
+    background: rgba(255, 183, 3, 0.2);
+    color: #ffb703;
+    border-color: rgba(255, 183, 3, 0.4);
+}
+
+/* Payment Panel Content */
+.payment-panel-content {
+    animation: fadeInTab 0.3s ease;
+    margin-bottom: 20px;
+}
+
+@keyframes fadeInTab {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.method-instruction-card {
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid var(--border-glass);
     border-radius: var(--radius-md);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.instruction-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+}
+
+.instruction-header .inst-icon {
+    font-size: 1.8rem;
+    flex-shrink: 0;
+}
+
+.instruction-header h4 {
+    color: var(--text-main);
+    font-size: 1.05rem;
+    font-weight: 800;
+    margin-bottom: 4px;
+}
+
+.instruction-header p {
+    color: var(--text-muted);
+    font-size: 0.86rem;
+    line-height: 1.5;
+}
+
+.whish-tag {
+    color: #ff3366 !important;
+    background: rgba(255, 51, 102, 0.12) !important;
+    border-color: rgba(255, 51, 102, 0.35) !important;
+}
+
+.highlight-input {
+    font-size: 1.05rem !important;
+    font-weight: 800 !important;
+    color: #00ff88 !important;
+    letter-spacing: 1px;
+}
+
+.whish-amount-banner {
+    background: linear-gradient(135deg, rgba(0, 255, 136, 0.08), rgba(0, 229, 255, 0.05));
+    border: 1px solid rgba(0, 255, 136, 0.25);
+    border-radius: var(--radius-sm);
+    padding: 10px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.whish-amount-val {
+    color: #00ff88;
+    font-size: 1.25rem;
+    font-weight: 900;
+}
+
+.btn-whatsapp-action {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 170px;
-    min-height: 170px;
+    gap: 10px;
+    width: 100%;
+    background: linear-gradient(135deg, #25D366, #128C7E);
+    color: #fff;
+    text-decoration: none;
+    padding: 12px 18px;
+    border-radius: var(--radius-sm);
+    font-size: 0.88rem;
+    font-weight: 800;
+    box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3);
+    transition: all 0.25s ease;
 }
 
-.qrcode-wrapper canvas, .qrcode-wrapper img {
-    max-width: 100%;
-    height: auto;
-    display: block;
+.btn-whatsapp-action:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(37, 211, 102, 0.45);
+    color: #fff;
 }
 
-.qr-note {
-    font-size: 0.75rem;
-    color: var(--text-dim);
-    text-align: center;
-    line-height: 1.3;
+.btn-whatsapp-action .wa-icon {
+    font-size: 1.2rem;
 }
 
-.wallet-details-section {
+.crypto-auto-detect-note {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(0, 229, 255, 0.06);
+    border: 1px solid rgba(0, 229, 255, 0.2);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    margin-top: 6px;
+}
+
+.crypto-auto-detect-note .icon {
+    font-size: 1.4rem;
+    color: var(--neon-cyan);
+    flex-shrink: 0;
+}
+
+.crypto-auto-detect-note .text {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 2px;
+}
+
+.crypto-auto-detect-note strong {
+    color: var(--neon-cyan);
+    font-size: 0.86rem;
+}
+
+.crypto-auto-detect-note p {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    line-height: 1.4;
+    margin: 0;
 }
 
 .input-field-group {
@@ -1147,6 +1324,95 @@ body {
 
 @keyframes spin {
     to { transform: rotate(360deg); }
+}
+
+/* TxID Input & Badges */
+.txid-field-group {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+}
+
+.badge-required {
+    font-size: 0.72rem;
+    color: #ff9f43;
+    background: rgba(255, 159, 67, 0.15);
+    border: 1px solid rgba(255, 159, 67, 0.3);
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 700;
+}
+
+.txid-input-wrap input {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    color: #fff;
+    font-size: 0.88rem;
+    font-family: monospace;
+    outline: none;
+    transition: all 0.25s ease;
+}
+
+.txid-input-wrap input:focus {
+    border-color: #ff4b2b;
+    box-shadow: 0 0 15px rgba(255, 75, 43, 0.25);
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.txid-help-note {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    line-height: 1.4;
+}
+
+/* Payment Error Alert Box */
+.payment-error-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 65, 108, 0.12);
+    border: 1px solid rgba(255, 65, 108, 0.4);
+    box-shadow: 0 0 20px rgba(255, 65, 108, 0.2);
+    color: #ffb8b8;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    animation: shakeError 0.4s ease-in-out;
+}
+
+.payment-error-alert.hidden { display: none; }
+
+.payment-error-alert .error-icon {
+    font-size: 1.4rem;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.payment-error-alert .error-msg-content strong {
+    display: block;
+    color: #ff4b2b;
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+    font-weight: 800;
+}
+
+.payment-error-alert .error-msg-content p {
+    margin: 0;
+    color: #f1f2f6;
+    font-size: 0.84rem;
+}
+
+@keyframes shakeError {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-6px); }
+    40%, 80% { transform: translateX(6px); }
 }
 
 /* Delivery Hub Modal */
@@ -1512,12 +1778,8 @@ body {
         font-size: 2.3rem;
     }
     
-    .payment-steps-container {
+    .payment-tabs-nav {
         grid-template-columns: 1fr;
-    }
-    
-    .wallet-qr-section {
-        margin: 0 auto;
     }
     
     .download-buttons-group {
@@ -1591,4 +1853,597 @@ body {
     color: var(--text-muted);
     line-height: 1.4;
 }
+
+/* ========== Ultra-Luxury Visa Card Presentation ========== */
+.visa-credit-card-ui {
+    background: linear-gradient(135deg, #161a29 0%, #0d0f17 50%, #1e1528 100%);
+    border: 1px solid rgba(255, 215, 0, 0.28);
+    border-radius: var(--radius-md);
+    padding: 22px 24px;
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.65), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+    position: relative;
+    overflow: hidden;
+}
+
+.visa-credit-card-ui::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 250px;
+    height: 250px;
+    background: radial-gradient(circle, rgba(255, 183, 3, 0.12) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.card-chip-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+}
+
+.card-chip {
+    font-size: 1.8rem;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+
+.card-brand {
+    font-size: 1.4rem;
+    font-weight: 900;
+    font-style: italic;
+    letter-spacing: 2px;
+    background: linear-gradient(135deg, #ffffff, #dcdcdc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.card-number-display {
+    display: flex;
+    gap: 14px;
+    font-family: 'Courier New', Courier, monospace, monospace;
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #f8fafc;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+    direction: ltr;
+}
+
+.card-details-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+
+.card-holder-col small {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 2px;
+}
+
+.card-holder-col strong {
+    font-size: 1rem;
+    color: #fff;
+    letter-spacing: 1.5px;
+    font-family: 'Courier New', monospace;
+}
+
+.card-security-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0, 255, 136, 0.12);
+    border: 1px solid rgba(0, 255, 136, 0.3);
+    color: var(--success-green);
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+}
+
+/* Payment Steps List */
+.payment-steps-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 14px;
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+}
+
+.p-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 0.86rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+}
+
+.p-step-num {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-main);
+    font-weight: 800;
+    font-size: 0.78rem;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.p-step.highlight {
+    background: rgba(255, 183, 3, 0.08);
+    border: 1px solid rgba(255, 183, 3, 0.25);
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: #ffd200;
+}
+
+.p-step.highlight .p-step-num {
+    background: #ffd200;
+    color: #000;
+}
+
+.tme-link {
+    color: var(--neon-cyan);
+    text-decoration: underline;
+    font-weight: 800;
+}
+
+/* Modal Quick Downloads */
+.modal-quick-downloads {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px dashed rgba(255, 255, 255, 0.15);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    margin-top: 14px;
+}
+
+.quick-dl-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-size: 0.85rem;
+    color: var(--text-main);
+}
+
+.quick-dl-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.btn-modal-dl {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    color: var(--text-main);
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.btn-modal-dl:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+/* Telegram Glowing Action Button */
+.telegram-action-btn {
+    background: linear-gradient(135deg, #0088cc, #00b4d8) !important;
+    box-shadow: 0 6px 25px rgba(0, 136, 204, 0.45) !important;
+    border: none !important;
+    font-size: 1.05rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.3px;
+    padding: 16px 24px !important;
+    cursor: pointer;
+    transition: all 0.25s ease !important;
+    width: 100%;
+    border-radius: var(--radius-sm);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.telegram-action-btn:hover {
+    background: linear-gradient(135deg, #0099e6, #00c8f8) !important;
+    box-shadow: 0 8px 30px rgba(0, 180, 216, 0.65) !important;
+    transform: translateY(-2px) !important;
+}
+
+/* ========== Dedicated Downloads Section ========== */
+.downloads-section {
+    padding: 100px 0 80px;
+    position: relative;
+    border-top: 1px solid var(--border-glass);
+}
+
+.downloads-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin-top: 40px;
+}
+
+.download-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-lg);
+    padding: 36px 30px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(16px);
+}
+
+.download-card:hover {
+    transform: translateY(-6px);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+}
+
+.download-card.ios-card:hover {
+    box-shadow: 0 16px 40px rgba(0, 255, 136, 0.15);
+    border-color: rgba(0, 255, 136, 0.35);
+}
+
+.download-card.pc-card:hover {
+    box-shadow: 0 16px 40px rgba(157, 78, 221, 0.2);
+    border-color: rgba(157, 78, 221, 0.4);
+}
+
+.dl-card-badge {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 255, 136, 0.15);
+    color: var(--success-green);
+    border: 1px solid rgba(0, 255, 136, 0.3);
+    font-size: 0.76rem;
+    font-weight: 800;
+    padding: 4px 12px;
+    border-radius: 20px;
+}
+
+[dir="ltr"] .dl-card-badge {
+    right: auto;
+    left: 20px;
+}
+
+.dl-card-badge.purple {
+    background: rgba(157, 78, 221, 0.15);
+    color: var(--vip-purple);
+    border-color: rgba(157, 78, 221, 0.35);
+}
+
+.dl-platform-icon {
+    font-size: 2.8rem;
+    margin-bottom: 12px;
+}
+
+.download-card h3 {
+    font-size: 1.45rem;
+    font-weight: 900;
+    color: #fff;
+    margin-bottom: 4px;
+}
+
+.dl-version-tag {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+}
+
+.dl-card-divider {
+    height: 1px;
+    background: var(--border-glass);
+    margin-bottom: 20px;
+}
+
+.dl-highlights {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 28px;
+    flex-grow: 1;
+}
+
+.dl-highlights li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.dl-highlights li .icon {
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.btn-download-primary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 16px 24px;
+    border-radius: var(--radius-md);
+    font-size: 1.02rem;
+    font-weight: 800;
+    text-decoration: none;
+    color: #fff;
+    transition: all 0.25s ease;
+    box-shadow: var(--shadow-soft);
+    margin-bottom: 20px;
+}
+
+.btn-download-primary.ios {
+    background: linear-gradient(135deg, #00b4d8, #0077b6);
+    box-shadow: 0 6px 20px rgba(0, 180, 216, 0.35);
+}
+
+.btn-download-primary.ios:hover {
+    background: linear-gradient(135deg, #00c8f8, #0096c7);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 180, 216, 0.55);
+}
+
+.btn-download-primary.pc {
+    background: linear-gradient(135deg, #9d4edd, #7b2cbf);
+    box-shadow: 0 6px 20px rgba(157, 78, 221, 0.35);
+}
+
+.btn-download-primary.pc:hover {
+    background: linear-gradient(135deg, #b05fe6, #8e38d4);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(157, 78, 221, 0.55);
+}
+
+.dl-card-guide {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.dl-card-guide strong {
+    display: block;
+    color: var(--text-main);
+    font-size: 0.86rem;
+    margin-bottom: 4px;
+}
+
+/* Download Activation Notice Banner */
+.download-activation-banner {
+    margin-top: 36px;
+    background: linear-gradient(135deg, rgba(255, 183, 3, 0.08), rgba(255, 75, 43, 0.05));
+    border: 1px solid rgba(255, 183, 3, 0.3);
+    border-radius: var(--radius-md);
+    padding: 24px 28px;
+    display: flex;
+    align-items: center;
+    gap: 22px;
+}
+
+.download-activation-banner .banner-icon {
+    font-size: 2.6rem;
+    flex-shrink: 0;
+}
+
+.download-activation-banner .banner-content {
+    flex-grow: 1;
+}
+
+.download-activation-banner .banner-content h4 {
+    font-size: 1.15rem;
+    color: #ffd200;
+    font-weight: 800;
+    margin-bottom: 6px;
+}
+
+.download-activation-banner .banner-content p {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    line-height: 1.55;
+    margin: 0;
+}
+
+.download-activation-banner .banner-action {
+    flex-shrink: 0;
+}
+
+.btn-fire-hero.sm {
+    padding: 12px 20px;
+    font-size: 0.92rem;
+}
+
+@media (max-width: 900px) {
+    .downloads-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .download-activation-banner {
+        flex-direction: column;
+        text-align: center;
+        gap: 16px;
+    }
+    
+    .card-number-display {
+        font-size: 1.1rem;
+        gap: 8px;
+    }
+}
+
+/* ========== Download & Activation Modal Styles ========== */
+.activation-modal-box {
+    max-width: 620px;
+    padding: 32px 28px;
+    text-align: center;
+}
+
+.trust-badge.dl-badge {
+    background: rgba(0, 255, 136, 0.15);
+    border-color: rgba(0, 255, 136, 0.35);
+    color: var(--success-green);
+    margin-bottom: 14px;
+}
+
+.activation-info-box {
+    background: linear-gradient(135deg, rgba(255, 183, 3, 0.08), rgba(255, 75, 43, 0.05));
+    border: 1px solid rgba(255, 183, 3, 0.3);
+    border-radius: var(--radius-md);
+    padding: 20px 22px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    text-align: right;
+    margin: 20px 0;
+}
+
+[dir="ltr"] .activation-info-box {
+    text-align: left;
+}
+
+.activation-info-box .act-icon {
+    font-size: 2.2rem;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.activation-info-box .act-details h4 {
+    color: #ffd200;
+    font-size: 1.05rem;
+    font-weight: 800;
+    margin-bottom: 6px;
+}
+
+.activation-info-box .act-details p {
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    line-height: 1.55;
+    margin-bottom: 12px;
+}
+
+.owner-highlight-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 136, 204, 0.18);
+    border: 1px solid rgba(0, 180, 216, 0.4);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 0.88rem;
+}
+
+.owner-highlight-pill span {
+    color: var(--text-muted);
+}
+
+.owner-highlight-pill .tg-username {
+    color: #00e5ff;
+    font-weight: 900;
+    text-decoration: none;
+    font-size: 1rem;
+}
+
+.owner-highlight-pill .tg-username:hover {
+    text-decoration: underline;
+}
+
+.quick-install-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    text-align: right;
+    margin-bottom: 24px;
+}
+
+[dir="ltr"] .quick-install-steps {
+    text-align: left;
+}
+
+.q-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+}
+
+.q-num {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ff416c, #ff4b2b);
+    color: #fff;
+    font-weight: 900;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.q-text strong {
+    display: block;
+    color: var(--text-main);
+    font-size: 0.88rem;
+    margin-bottom: 2px;
+}
+
+.q-text p {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    line-height: 1.4;
+    margin: 0;
+}
+
+.btn-close-sub {
+    background: transparent;
+    border: 1px solid var(--border-glass);
+    color: var(--text-muted);
+    padding: 12px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+    margin-top: 8px;
+}
+
+.btn-close-sub:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+}
+
 
