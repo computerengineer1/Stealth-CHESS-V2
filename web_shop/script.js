@@ -85,18 +85,25 @@ const i18n = {
         dl_section_subtitle: "الملفات متاحة للتحميل المباشر الآن. عند الضغط سيبدأ التنزيل فوراً، وتستطيع استلام مفتاح التفعيل عبر تيليجرام من المالك.",
         dl_ipa_badge: "للآيفون والآيباد (iOS)",
         dl_ipa_btn: "تحميل ملف IPA (10.8 MB) 🍏",
+        dl_android_badge: "للأندرويد (Android APK)",
+        dl_android_btn: "تحميل ملف APK (11.3 MB) 🤖",
         dl_pc_badge: "للكمبيوتر (Windows PC)",
         dl_pc_btn: "تحميل حزمة PC ZIP (107 MB) 💻",
         dl_ios_perk1: "بدون جيلبريك (يدعم iOS 13 وحتى أحدث إصدارات iOS)",
         dl_ios_perk2: "تثبيت سهل وسريع عبر Scarlet أو ESign أو Sideloadly",
         dl_ios_perk3: "متصفح مدمج يحقن المحرك مباشرة داخل Chess.com",
         dl_ios_perk4: "محمي بمفتاح ترخيص حصري يرسله المالك بعد التواصل",
+        dl_android_perk1: "تثبيت مباشر وسريع بدون كمبيوتر أو قيود",
+        dl_android_perk2: "يدعم جميع أجهزة الأندرويد (سامسونج، شاومي، هواوي، وغيرها)",
+        dl_android_perk3: "متصفح مدمج ومحرك Stockfish 18 الذكي مدمج بالكامل",
+        dl_android_perk4: "محمي بمفتاح ترخيص حصري يرسله المالك بعد التواصل",
         dl_pc_perk1: "متوافق مع Windows 10 و Windows 11 (64-bit)",
         dl_pc_perk2: "شاشة شفافة فوق اللعبة ومخفية تماماً عن بث الديسكورد والزووم",
         dl_pc_perk3: "اختصارات سريعة (Ctrl+Shift+H) للبدء والإيقاف اللحظي",
         dl_pc_perk4: "محمي بمفتاح ترخيص حصري يرسله المالك بعد التواصل",
         dl_guide_quick_title: "طريقة التثبيت السريعة:",
         dl_guide_quick_ios: "قم بتحميل ملف الـ IPA، وافتحه عبر تطبيق ESign أو Scarlet على هاتفك، أو استخدم Sideloadly من الكمبيوتر لتثبيته خلال دقائق.",
+        dl_guide_quick_android: "حمّل ملف الـ APK، وافتحه لتثبيته فوراً على هاتفك (تفعيل خيار 'تثبيت التطبيقات من مصادر غير معروفة' إذا طُلب منك).",
         dl_guide_quick_pc: "فك الضغط عن ملف ZIP، حمّل مجلد extension في متصفح كروم (Developer Mode)، ثم شغّل ملف main.exe وأدخل مفتاحك.",
         dl_banner_title: "كيف يعمل نظام التفعيل بالمفتاح؟",
         dl_banner_desc: "يمكنك تنزيل وتثبيت الملفات أعلاه على هاتفك أو كمبيوترك في أي وقت مجاناً. عند فتح البرنامج لأول مرة سيطلب منك مفتاح الترخيص (License Key). للحصول على مفتاحك، تواصل مع المالك مباشرة على تيليجرام @owner_1_1 وسيرسل لك المفتاح في المحادثة مباشرة.",
@@ -203,18 +210,25 @@ const i18n = {
         dl_section_subtitle: "Files are available for immediate download. When you click, download starts instantly, and you can obtain your license key on Telegram from the owner.",
         dl_ipa_badge: "iPhone & iPad (iOS)",
         dl_ipa_btn: "Download IPA Build (10.8 MB) 🍏",
+        dl_android_badge: "Android Devices (APK)",
+        dl_android_btn: "Download APK File (11.3 MB) 🤖",
         dl_pc_badge: "Windows PC (10/11)",
         dl_pc_btn: "Download PC ZIP (107 MB) 💻",
         dl_ios_perk1: "No Jailbreak Required (Supports iOS 13 through iOS 18+)",
         dl_ios_perk2: "Effortless installation via Scarlet, ESign, or Sideloadly",
         dl_ios_perk3: "Sandboxed browser injects engine directly into Chess.com",
         dl_ios_perk4: "Protected by unique license key delivered upon contact",
+        dl_android_perk1: "Direct 1-click installation without PC or root",
+        dl_android_perk2: "Supports all Android devices (Samsung, Xiaomi, Huawei, etc.)",
+        dl_android_perk3: "Integrated stealth browser with Stockfish 18 WASM",
+        dl_android_perk4: "Protected by unique license key delivered upon contact",
         dl_pc_perk1: "Fully compatible with Windows 10 and Windows 11 (64-bit)",
         dl_pc_perk2: "Invisible ghost overlay hidden from Discord & OBS screen share",
         dl_pc_perk3: "Quick keyboard shortcuts (Ctrl+Shift+H) for instant toggling",
         dl_pc_perk4: "Protected by unique license key delivered upon contact",
         dl_guide_quick_title: "Quick Setup Guide:",
         dl_guide_quick_ios: "Download the IPA file, open it in ESign or Scarlet on your iPhone, or use Sideloadly on PC to install within minutes.",
+        dl_guide_quick_android: "Download the APK file and tap to install on your phone (enable 'Install Unknown Apps' in Android Settings if prompted).",
         dl_guide_quick_pc: "Extract the ZIP file, load the extension folder in Google Chrome (Developer Mode), run main.exe and enter your key.",
         dl_banner_title: "How Does the License Key System Work?",
         dl_banner_desc: "You can download and install the app files on your iPhone or PC anytime for free. When you first launch the app, it will ask for an official License Key. To receive your key, contact the owner on Telegram @owner_1_1 and he will send your key directly in chat.",
@@ -347,9 +361,11 @@ function contactOwnerForPlan(planName, price) {
     const isAr = currentLanguage === "ar";
     const platformText = selectedPlatform === "ios" 
         ? (isAr ? "الآيفون (iOS IPA)" : "iPhone (iOS IPA)") 
-        : (selectedPlatform === "pc" 
-            ? (isAr ? "الكمبيوتر (Windows EXE)" : "Windows PC (EXE)") 
-            : (isAr ? "كلا الجهازين" : "Both Devices"));
+        : (selectedPlatform === "android"
+            ? (isAr ? "الأندرويد (Android APK)" : "Android (APK)")
+            : (selectedPlatform === "pc" 
+                ? (isAr ? "الكمبيوتر (Windows EXE)" : "Windows PC (EXE)") 
+                : (isAr ? "جميع الأجهزة" : "All Devices")));
 
     const msg = isAr
         ? `مرحباً محمود! 👋\nأرغب بالاشتراك في باقة (${planName} - $${price}) لبوت الشطرنج (Stealth Chess) لمنصة (${platformText}).\nيرجى تزويدي بطريقة الدفع ومفتاح التفعيل الخاص بي ♟️`

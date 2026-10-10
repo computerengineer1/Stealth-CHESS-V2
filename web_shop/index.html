@@ -73,13 +73,17 @@
                                 <span class="tab-icon">🍏</span>
                                 <span class="tab-text">iPhone / iPad (IPA)</span>
                             </button>
+                            <button class="platform-tab" data-platform="android" onclick="selectPlatform('android')">
+                                <span class="tab-icon">🤖</span>
+                                <span class="tab-text">Android (APK)</span>
+                            </button>
                             <button class="platform-tab" data-platform="pc" onclick="selectPlatform('pc')">
                                 <span class="tab-icon">💻</span>
                                 <span class="tab-text">Windows PC (EXE)</span>
                             </button>
                             <button class="platform-tab" data-platform="both" onclick="selectPlatform('both')">
                                 <span class="tab-icon">⚡</span>
-                                <span class="tab-text" data-i18n="platform_both">كلا الجهازين (الكل)</span>
+                                <span class="tab-text" data-i18n="platform_both">جميع المنصات (الكل)</span>
                             </button>
                         </div>
                     </div>
@@ -346,7 +350,34 @@
                         </div>
                     </div>
 
-                    <!-- Option 2: Windows PC EXE/ZIP -->
+                    <!-- Option 2: Android APK -->
+                    <div class="download-card android-card">
+                        <div class="dl-card-badge green" data-i18n="dl_android_badge">للأندرويد (Android APK)</div>
+                        <div class="dl-platform-icon">🤖</div>
+                        <h3>Stealth Chess Helper (Android)</h3>
+                        <p class="dl-version-tag">Version 1.2 • 11.3 MB • Stockfish 18 WASM</p>
+                        
+                        <div class="dl-card-divider"></div>
+
+                        <ul class="dl-highlights">
+                            <li><span class="icon">✅</span> <span data-i18n="dl_android_perk1">تثبيت مباشر وسريع بدون كمبيوتر أو قيود</span></li>
+                            <li><span class="icon">✅</span> <span data-i18n="dl_android_perk2">يدعم جميع أجهزة الأندرويد (سامسونج، شاومي، هواوي، وغيرها)</span></li>
+                            <li><span class="icon">✅</span> <span data-i18n="dl_android_perk3">متصفح مدمج ومحرك Stockfish 18 الذكي مدمج بالكامل</span></li>
+                            <li><span class="icon">🔒</span> <span data-i18n="dl_android_perk4">محمي بمفتاح ترخيص حصري يرسله المالك بعد التواصل</span></li>
+                        </ul>
+
+                        <a href="downloads/StealthChessHelper.apk" download="StealthChessHelper.apk" class="btn-download-primary android dl-link-apk" onclick="triggerAppDownload('android', event)">
+                            <span class="dl-icon">⬇️</span>
+                            <span data-i18n="dl_android_btn">تحميل ملف APK (11.3 MB) 🤖</span>
+                        </a>
+
+                        <div class="dl-card-guide">
+                            <strong data-i18n="dl_guide_quick_title">طريقة التثبيت السريعة:</strong>
+                            <p data-i18n="dl_guide_quick_android">حمّل ملف الـ APK، وافتحه لتثبيته فوراً على هاتفك (تفعيل خيار "تثبيت التطبيقات من مصادر غير معروفة" إذا طُلب منك).</p>
+                        </div>
+                    </div>
+
+                    <!-- Option 3: Windows PC EXE/ZIP -->
                     <div class="download-card pc-card">
                         <div class="dl-card-badge purple" data-i18n="dl_pc_badge">للكمبيوتر (Windows PC)</div>
                         <div class="dl-platform-icon">💻</div>

@@ -2082,7 +2082,7 @@ body {
 
 .downloads-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     gap: 30px;
     margin-top: 40px;
 }
@@ -2108,6 +2108,11 @@ body {
 .download-card.ios-card:hover {
     box-shadow: 0 16px 40px rgba(0, 255, 136, 0.15);
     border-color: rgba(0, 255, 136, 0.35);
+}
+
+.download-card.android-card:hover {
+    box-shadow: 0 16px 40px rgba(0, 200, 83, 0.2);
+    border-color: rgba(0, 200, 83, 0.4);
 }
 
 .download-card.pc-card:hover {
@@ -2210,6 +2215,17 @@ body {
     background: linear-gradient(135deg, #00c8f8, #0096c7);
     transform: translateY(-2px);
     box-shadow: 0 8px 25px rgba(0, 180, 216, 0.55);
+}
+
+.btn-download-primary.android {
+    background: linear-gradient(135deg, #00c853, #009624);
+    box-shadow: 0 6px 20px rgba(0, 200, 83, 0.35);
+}
+
+.btn-download-primary.android:hover {
+    background: linear-gradient(135deg, #00e676, #00c853);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 200, 83, 0.55);
 }
 
 .btn-download-primary.pc {
