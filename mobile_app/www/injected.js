@@ -34,6 +34,50 @@ window.injectedStealthFunction = function() {
     const isLichess = window.location.hostname.includes("lichess.org");
 
     // ====================================================================
+    //  Cross-Platform InAppBrowser Bridge Message Sender (Android + iOS)
+    // ====================================================================
+    function sendBridgeMessage(payload) {
+        const jsonStr = (typeof payload === 'string') ? payload : JSON.stringify(payload);
+        
+        // 1. Android Cordova InAppBrowser
+        if (window.cordova_iab && typeof window.cordova_iab.postMessage === 'function') {
+            try {
+                window.cordova_iab.postMessage(jsonStr);
+                return true;
+            } catch (e) {
+                console.error("Error posting to window.cordova_iab:", e);
+            }
+        }
+        if (typeof cordova_iab !== 'undefined' && typeof cordova_iab.postMessage === 'function') {
+            try {
+                cordova_iab.postMessage(jsonStr);
+                return true;
+            } catch (e) {
+                console.error("Error posting to cordova_iab:", e);
+            }
+        }
+        
+        // 2. iOS WKWebView InAppBrowser
+        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cordova_iab) {
+            try {
+                window.webkit.messageHandlers.cordova_iab.postMessage(jsonStr);
+                return true;
+            } catch (e) {
+                console.error("Error posting to window.webkit:", e);
+            }
+        }
+        
+        // 3. Fallback / desktop iframe mock
+        if (window.parent && window.parent !== window) {
+            try {
+                window.parent.postMessage(payload, "*");
+                return true;
+            } catch (e) {}
+        }
+        return false;
+    }
+
+    // ====================================================================
     //  Lichess.org Board Scanner
     // ====================================================================
     function scanLichessBoard() {
@@ -161,9 +205,7 @@ window.injectedStealthFunction = function() {
             console.error("Lichess scan loop error:", err);
             try {
                 const errorPayload = { type: "ERROR", message: "LichessScan: " + err.message, stack: err.stack };
-                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cordova_iab) {
-                    window.webkit.messageHandlers.cordova_iab.postMessage(JSON.stringify(errorPayload));
-                }
+                sendBridgeMessage(errorPayload);
             } catch (postErr) {}
         }
 
@@ -194,11 +236,7 @@ window.injectedStealthFunction = function() {
                 time_left: timeLeft
             };
 
-            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cordova_iab) {
-                window.webkit.messageHandlers.cordova_iab.postMessage(JSON.stringify(payload));
-            } else if (window.parent && window.parent !== window) {
-                window.parent.postMessage(payload, "*");
-            }
+            sendBridgeMessage(payload);
         }
     }
 
@@ -342,9 +380,7 @@ window.injectedStealthFunction = function() {
                     message: "Scan: " + err.message,
                     stack: err.stack
                 };
-                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cordova_iab) {
-                    window.webkit.messageHandlers.cordova_iab.postMessage(JSON.stringify(errorPayload));
-                }
+                sendBridgeMessage(errorPayload);
             } catch (postErr) {}
         }
 
@@ -371,8 +407,11 @@ window.injectedStealthFunction = function() {
             const rect = boardElement.getBoundingClientRect();
             const rectData = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
 
-            // If secure stealth screen is active, route all drawing to the native secure webview
-            if (window.__stealth_settings_secure) {
+            // Check if iOS native secure overlay is available
+            const hasIosNativeOverlay = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cordova_iab);
+
+            // If secure stealth screen is active AND iOS native overlay exists, route all drawing to the native secure webview
+            if (window.__stealth_settings_secure && hasIosNativeOverlay) {
                 // Clear any DOM overlay that was previously drawn
                 const root = boardElement.shadowRoot || boardElement;
                 let svg = document.getElementById("stealth-board-overlay") || root.querySelector("#stealth-board-overlay");
@@ -381,27 +420,25 @@ window.injectedStealthFunction = function() {
                 if (hud) hud.style.setProperty("display", "none", "important");
 
                 // Send to native secure overlay
-                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cordova_iab) {
-                    window.webkit.messageHandlers.cordova_iab.postMessage({
-                        id: "stealth_draw_overlay",
-                        d: JSON.stringify({
-                            moves: moves,
-                            isWhiteBottom: isWhiteBottom,
-                            timeLeft: timeLeft,
-                            showArrows: showArrows,
-                            showHud: showHud,
-                            rect: rectData,
-                            secretHidden: !!window.__stealth_ui_hidden
-                        })
-                    });
-                }
+                sendBridgeMessage({
+                    id: "stealth_draw_overlay",
+                    d: JSON.stringify({
+                        moves: moves,
+                        isWhiteBottom: isWhiteBottom,
+                        timeLeft: timeLeft,
+                        showArrows: showArrows,
+                        showHud: showHud,
+                        rect: rectData,
+                        secretHidden: !!window.__stealth_ui_hidden
+                    })
+                });
                 return;
             }
 
-            // Otherwise, we draw in the Chess.com DOM (making it visible in recordings/screenshots)
-            // First, clear the native secure overlay by sending a blank state
-            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cordova_iab) {
-                window.webkit.messageHandlers.cordova_iab.postMessage({
+            // Otherwise (on Android or when iOS native overlay is not active), we draw directly in the Chess.com DOM!
+            // First, if iOS native overlay was active previously, clear it by sending a blank state
+            if (hasIosNativeOverlay) {
+                sendBridgeMessage({
                     id: "stealth_draw_overlay",
                     d: JSON.stringify({
                         moves: [],
@@ -652,9 +689,7 @@ window.injectedStealthFunction = function() {
                     message: "Draw Overlay: " + err.message,
                     stack: err.stack
                 };
-                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cordova_iab) {
-                    window.webkit.messageHandlers.cordova_iab.postMessage(JSON.stringify(errorPayload));
-                }
+                sendBridgeMessage(errorPayload);
             } catch (postErr) {}
         }
     };

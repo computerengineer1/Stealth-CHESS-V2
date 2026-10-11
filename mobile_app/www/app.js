@@ -849,6 +849,17 @@ function startBot() {
                 return;
             }
         }
+        // Handle Android InAppBrowser data encapsulation
+        if (data && data.data && !data.type) {
+            if (typeof data.data === "object") {
+                data = data.data;
+            } else if (typeof data.data === "string") {
+                try {
+                    const inner = JSON.parse(data.data);
+                    if (inner && inner.type) data = inner;
+                } catch (e) {}
+            }
+        }
         if (data && data.type === "BOARD_STATE") {
             handleBoardUpdate(data.matrix, data.is_white_bottom, data.time_left);
         } else if (data && data.type === "ERROR") {
