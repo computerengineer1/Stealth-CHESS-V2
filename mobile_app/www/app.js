@@ -794,7 +794,7 @@ function startBot() {
     addLiveLog("Opening Chess.com in WebView overlay...", "info");
     
     // Build InAppBrowser options based on fullscreen preference
-    let browserOptions = "location=no,hidden=no";
+    let browserOptions = "location=no,hidden=no,clearcache=no,clearsessioncache=no";
     if (appState.fullscreenMode) {
         browserOptions += ",toolbar=no,fullscreen=yes";
         addLiveLog("Fullscreen mode enabled. Triple-tap to toggle UI.", "info");
@@ -808,59 +808,49 @@ function startBot() {
         browserOptions
     );
 
+    // Watchdog to ensure stealth assistant remains injected across SPA page navigations
+    if (window._injectionWatchdog) {
+        clearInterval(window._injectionWatchdog);
+    }
+    window._injectionWatchdog = setInterval(() => {
+        if (!appState.isBotRunning || !chessWebView) return;
+        chessWebView.executeScript({ code: "typeof window.drawStealthOverlay" }, (res) => {
+            if (!res || res[0] === "undefined") {
+                console.log("Watchdog: Stealth script not active in WebView. Injecting...");
+                injectStealthScript();
+            }
+        });
+    }, 2500);
+
     // When page finished loading, inject board detector & arrow painter scripts
     chessWebView.addEventListener("loadstop", () => {
         console.log("InAppBrowser loaded Chess.com. Injecting stealth reader...");
         addLiveLog("WebView loaded. Injecting stealth reader script...", "info");
-        
-        // First inject CSS rules for overlay
-        chessWebView.insertCSS({
-            code: `
-                #stealth-hud-container {
-                    position: absolute;
-                    pointer-events: none;
-                    z-index: 99999;
-                }
-            `
-        });
-
-        // Inject the script directly by stringifying the function already loaded in memory.
-        // This is 100% reliable and avoids local file fetching issues in Capacitor/iOS WKWebView.
-        if (window.injectedStealthFunction) {
-            const code = `(${window.injectedStealthFunction.toString()})();`;
-            chessWebView.executeScript({ code: code }, (res) => {
-                addLiveLog("Stealth reader successfully injected.", "success");
-            });
-        } else {
-            console.error("Error: window.injectedStealthFunction is not loaded on the main window!");
-            addLiveLog("Failed to inject: stealth script function not found in memory.", "error");
-        }
+        injectStealthScript();
     });
 
     // Listen to board data events sent from WebView (supports stringified JSON and raw object payloads)
     chessWebView.addEventListener("message", (event) => {
-        let data = event.data;
+        let data = (event && event.data !== undefined) ? event.data : event;
         if (typeof data === "string") {
             try {
                 data = JSON.parse(data);
             } catch (e) {
                 console.error("Failed to parse message string from InAppBrowser:", e);
-                addLiveLog("Failed to parse message: " + e.message, "error");
                 return;
             }
         }
         // Handle Android InAppBrowser data encapsulation
-        if (data && data.data && !data.type) {
-            if (typeof data.data === "object") {
-                data = data.data;
-            } else if (typeof data.data === "string") {
-                try {
-                    const inner = JSON.parse(data.data);
-                    if (inner && inner.type) data = inner;
-                } catch (e) {}
-            }
+        if (data && data.data && typeof data.data === "object" && !data.matrix) {
+            data = data.data;
+        } else if (data && data.data && typeof data.data === "string") {
+            try {
+                const inner = JSON.parse(data.data);
+                if (inner && (inner.type || inner.matrix)) data = inner;
+            } catch (e) {}
         }
-        if (data && data.type === "BOARD_STATE") {
+
+        if (data && (data.type === "BOARD_STATE" || (data.matrix && Array.isArray(data.matrix)))) {
             handleBoardUpdate(data.matrix, data.is_white_bottom, data.time_left);
         } else if (data && data.type === "ERROR") {
             addLiveLog("WebView Error: " + data.message, "error");
@@ -875,9 +865,38 @@ function startBot() {
     });
 }
 
+// Injects the in-memory stealth script into the active InAppBrowser instance
+function injectStealthScript() {
+    if (!chessWebView) return;
+
+    // Inject CSS rules for overlay
+    chessWebView.insertCSS({
+        code: `
+            #stealth-hud-container, #stealth-board-overlay {
+                pointer-events: none !important;
+                z-index: 99999 !important;
+            }
+        `
+    });
+
+    if (window.injectedStealthFunction) {
+        const code = `(${window.injectedStealthFunction.toString()})();`;
+        chessWebView.executeScript({ code: code }, (res) => {
+            console.log("Stealth script injected successfully.");
+        });
+    } else {
+        console.error("Error: window.injectedStealthFunction is not loaded on main window!");
+    }
+}
+
 function stopBot() {
     appState.isBotRunning = false;
     addLiveLog("Assistant Bot stopped.", "warning");
+
+    if (window._injectionWatchdog) {
+        clearInterval(window._injectionWatchdog);
+        window._injectionWatchdog = null;
+    }
     
     const startBtn = document.getElementById("start-bot-btn");
     startBtn.innerHTML = `<span>Start Assistant Bot</span><span class="btn-ar">بدء بوت المساعد الذكي</span>`;
@@ -958,15 +977,24 @@ function handleBoardUpdate(matrix, isWhiteBottom, timeLeft) {
 function sendMovesToWebView(moves, isWhiteBottom, timeLeft) {
     if (!chessWebView) return;
     
-    addLiveLog("Rendering arrows overlay in WebView...", "info");
+    addLiveLog("Rendering " + moves.length + " arrow(s) in WebView...", "info");
     // Convert to JSON and evaluate injection in WebView DOM
     const serializedMoves = JSON.stringify(moves);
     const code = `
-        if (window.drawStealthOverlay) {
-            window.drawStealthOverlay(${serializedMoves}, ${isWhiteBottom}, ${timeLeft}, ${appState.showArrows}, ${appState.showHud}, ${appState.stealthScreen});
-        }
+        (function() {
+            if (typeof window.drawStealthOverlay === 'function') {
+                window.drawStealthOverlay(${serializedMoves}, ${isWhiteBottom}, ${timeLeft}, ${appState.showArrows}, ${appState.showHud}, ${appState.stealthScreen});
+                return "DRAW_OK";
+            }
+            return "NOT_READY";
+        })()
     `;
-    chessWebView.executeScript({ code: code });
+    chessWebView.executeScript({ code: code }, (result) => {
+        if (!result || result[0] !== "DRAW_OK") {
+            // Re-inject if drawStealthOverlay was not defined yet
+            injectStealthScript();
+        }
+    });
 }
 
 // Desktop Simulator Mock for browser testing

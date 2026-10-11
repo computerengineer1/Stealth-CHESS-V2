@@ -240,44 +240,62 @@ window.injectedStealthFunction = function() {
         }
     }
 
+    // Robust Board Element Finder for Mobile & Desktop
+    function findChessBoard() {
+        const selectors = [
+            '#board-layout-chessboard wc-chess-board',
+            'wc-chess-board',
+            'chess-board',
+            '#board-single',
+            '#board-layout-chessboard',
+            '.board',
+            'cg-board',
+            '[id^="board-"]'
+        ];
+        const candidates = document.querySelectorAll(selectors.join(', '));
+        for (let i = 0; i < candidates.length; i++) {
+            const el = candidates[i];
+            const r = el.getBoundingClientRect();
+            if (r.width > 120 && r.height > 120) {
+                return el;
+            }
+        }
+        return candidates[0] || null;
+    }
+
     // Main Chess.com scanning loop
     function scanChessBoard() {
         try {
-            const boardElement = document.querySelector('wc-chess-board, chess-board, .board');
+            const boardElement = findChessBoard();
             if (!boardElement) {
-                // Keep searching if board not loaded yet
                 nativeSetTimeout(scanChessBoard, 200);
                 return;
             }
 
-            // Sync DOM overlay position and size in real-time
             const rect = boardElement.getBoundingClientRect();
-            const domSvg = document.getElementById("stealth-board-overlay");
-            if (domSvg && domSvg.style.display !== "none") {
-                domSvg.style.width = rect.width + "px";
-                domSvg.style.height = rect.height + "px";
-                domSvg.style.left = (window.scrollX + rect.left) + "px";
-                domSvg.style.top = (window.scrollY + rect.top) + "px";
-                domSvg.setAttribute("width", rect.width);
-                domSvg.setAttribute("height", rect.height);
-            }
-
             const root = boardElement.shadowRoot || boardElement;
-            const pieces = root.querySelectorAll('.piece, piece');
+            let pieces = root.querySelectorAll('.piece, piece, [class*="piece "]');
+            if (!pieces.length) {
+                pieces = document.querySelectorAll('.piece, [class*="piece "]');
+            }
             if (!pieces.length) {
                 nativeSetTimeout(scanChessBoard, 100);
                 return;
             }
 
+            // Determine board orientation (White vs Black on bottom)
             let isWhiteBottom = true;
-
-            // Cache orientation check to prevent layout reflows on getBoundingClientRect
-            if (cachedIsWhiteBottom !== null && framesSinceOrientationCheck < 30) {
+            if (boardElement.classList.contains('flipped') || boardElement.hasAttribute('flipped')) {
+                isWhiteBottom = false;
+            } else if (boardElement.classList.contains('orientation-black') || (boardElement.parentElement && boardElement.parentElement.classList.contains('orientation-black'))) {
+                isWhiteBottom = false;
+            } else if (boardElement.classList.contains('orientation-white') || (boardElement.parentElement && boardElement.parentElement.classList.contains('orientation-white'))) {
+                isWhiteBottom = true;
+            } else if (cachedIsWhiteBottom !== null && framesSinceOrientationCheck < 30) {
                 isWhiteBottom = cachedIsWhiteBottom;
                 framesSinceOrientationCheck++;
             } else {
                 framesSinceOrientationCheck = 0;
-                // Find a piece on rank 1, 2, 7, or 8 to determine board direction
                 let anchorPiece = Array.from(pieces).find(p => {
                     const sqClass = Array.from(p.classList).find(c => c.startsWith('square-'));
                     if (sqClass) {
@@ -302,9 +320,9 @@ window.injectedStealthFunction = function() {
                     } else if (coordPart.length === 4) {
                         rank = parseInt(coordPart.substring(2, 4), 10);
                     }
-                    const rect = anchorPiece.getBoundingClientRect();
-                    const boardRect = boardElement.getBoundingClientRect();
-                    const relativeY = (rect.top - boardRect.top) / boardRect.height;
+                    const aRect = anchorPiece.getBoundingClientRect();
+                    const bRect = boardElement.getBoundingClientRect();
+                    const relativeY = (aRect.top - bRect.top) / bRect.height;
                     const expectedY_WhiteBottom = (8 - rank) / 8;
                     const expectedY_BlackBottom = (rank - 1) / 8;
                     isWhiteBottom = Math.abs(relativeY - expectedY_WhiteBottom) < Math.abs(relativeY - expectedY_BlackBottom);
@@ -320,9 +338,9 @@ window.injectedStealthFunction = function() {
                 const classes = Array.from(p.classList);
                 const colorType = classes.find(c => c.length === 2 && (c[0] === 'w' || c[0] === 'b') && ['p', 'n', 'b', 'r', 'q', 'k'].includes(c[1].toLowerCase()));
                 const sqClass = classes.find(c => c.startsWith('square-'));
-                if (colorType && sqClass) {
+                let file = 0, rank = 0;
+                if (sqClass) {
                     const coordPart = sqClass.replace('square-', '');
-                    let file = 0, rank = 0;
                     if (coordPart.length === 2) {
                         file = parseInt(coordPart[0], 10);
                         rank = parseInt(coordPart[1], 10);
@@ -330,14 +348,20 @@ window.injectedStealthFunction = function() {
                         file = parseInt(coordPart.substring(0, 2), 10);
                         rank = parseInt(coordPart.substring(2, 4), 10);
                     }
-                    
-                    if (file >= 1 && file <= 8 && rank >= 1 && rank <= 8) {
-                        const r = 8 - rank;
-                        const c = file - 1;
-                        let char = colorType[1];
-                        if (colorType[0] === 'w') char = char.toUpperCase();
-                        boardArray[r][c] = char;
+                } else {
+                    const dataSq = p.getAttribute('data-square');
+                    if (dataSq && /^[a-h][1-8]$/.test(dataSq)) {
+                        file = dataSq.charCodeAt(0) - 96;
+                        rank = parseInt(dataSq[1], 10);
                     }
+                }
+                
+                if (colorType && file >= 1 && file <= 8 && rank >= 1 && rank <= 8) {
+                    const r = 8 - rank;
+                    const c = file - 1;
+                    let char = colorType[1];
+                    if (colorType[0] === 'w') char = char.toUpperCase();
+                    boardArray[r][c] = char;
                 }
             });
 
@@ -347,7 +371,7 @@ window.injectedStealthFunction = function() {
             if (!clockEl) {
                 const clocks = document.querySelectorAll('.clock-component');
                 if (clocks.length > 0) {
-                    clockEl = clocks[clocks.length - 1]; // Player's clock is typically the last one
+                    clockEl = clocks[clocks.length - 1];
                 }
             }
             if (clockEl) {
@@ -401,25 +425,26 @@ window.injectedStealthFunction = function() {
         }
 
         try {
-            const boardElement = document.querySelector('wc-chess-board, chess-board, .board');
+            const boardElement = findChessBoard();
             if (!boardElement) return;
 
             const rect = boardElement.getBoundingClientRect();
-            const rectData = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+            const boardWidth = rect.width || boardElement.clientWidth || 360;
+            const boardHeight = rect.height || boardElement.clientHeight || boardWidth;
+            const rectData = { left: rect.left, top: rect.top, width: boardWidth, height: boardHeight };
 
             // Check if iOS native secure overlay is available
-            const hasIosNativeOverlay = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cordova_iab);
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            const hasIosNativeOverlay = isIOS && !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cordova_iab);
 
             // If secure stealth screen is active AND iOS native overlay exists, route all drawing to the native secure webview
             if (window.__stealth_settings_secure && hasIosNativeOverlay) {
-                // Clear any DOM overlay that was previously drawn
                 const root = boardElement.shadowRoot || boardElement;
-                let svg = document.getElementById("stealth-board-overlay") || root.querySelector("#stealth-board-overlay");
-                if (svg) svg.style.setProperty("display", "none", "important");
+                let oldSvg = document.getElementById("stealth-board-overlay") || root.querySelector("#stealth-board-overlay");
+                if (oldSvg) oldSvg.style.setProperty("display", "none", "important");
                 let hud = document.getElementById("stealth-hud-card");
                 if (hud) hud.style.setProperty("display", "none", "important");
 
-                // Send to native secure overlay
                 sendBridgeMessage({
                     id: "stealth_draw_overlay",
                     d: JSON.stringify({
@@ -435,39 +460,13 @@ window.injectedStealthFunction = function() {
                 return;
             }
 
-            // Otherwise (on Android or when iOS native overlay is not active), we draw directly in the Chess.com DOM!
-            // First, if iOS native overlay was active previously, clear it by sending a blank state
-            if (hasIosNativeOverlay) {
-                sendBridgeMessage({
-                    id: "stealth_draw_overlay",
-                    d: JSON.stringify({
-                        moves: [],
-                        isWhiteBottom: isWhiteBottom,
-                        timeLeft: timeLeft,
-                        showArrows: false,
-                        showHud: false,
-                        rect: rectData,
-                        secretHidden: true
-                    })
-                });
-            }
-
-            const root = boardElement.shadowRoot || boardElement;
-            // Clean up any old SVG that might still be inside the shadow root of the chessboard
-            const oldSvg = root.querySelector("#stealth-board-overlay");
-            if (oldSvg) {
-                oldSvg.remove();
-            }
-
-            // 1. Create or Find SVG element in document.body
-            let svg = document.getElementById("stealth-board-overlay");
+            // Otherwise (on Android or when iOS native overlay is not active), draw directly on the chessboard DOM!
+            const targetContainer = boardElement.shadowRoot || boardElement;
+            let svg = targetContainer.querySelector("#stealth-board-overlay") || document.getElementById("stealth-board-overlay");
             if (!svg) {
                 svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
                 svg.setAttribute("id", "stealth-board-overlay");
-                svg.style.position = "absolute";
-                svg.style.pointerEvents = "none";
 
-                // Add SVG Shadow / Glow filter definitions
                 const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
                 defs.innerHTML = `
                     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
@@ -485,22 +484,29 @@ window.injectedStealthFunction = function() {
                     </filter>
                 `;
                 svg.appendChild(defs);
-                document.body.appendChild(svg);
             }
 
-            // Always update layout properties on every call in case the board resized or moved
-            svg.style.width = rect.width + "px";
-            svg.style.height = rect.height + "px";
-            svg.style.left = (window.scrollX + rect.left) + "px";
-            svg.style.top = (window.scrollY + rect.top) + "px";
-            svg.setAttribute("width", rect.width);
-            svg.setAttribute("height", rect.height);
+            // Pin SVG directly to the board container so it scales & scrolls 1:1 with board
+            if (window.getComputedStyle(boardElement).position === 'static') {
+                boardElement.style.position = 'relative';
+            }
+            if (svg.parentElement !== targetContainer) {
+                targetContainer.appendChild(svg);
+            }
+
+            svg.style.position = "absolute";
+            svg.style.top = "0px";
+            svg.style.left = "0px";
+            svg.style.width = "100%";
+            svg.style.height = "100%";
+            svg.style.pointerEvents = "none";
             svg.style.zIndex = "99999";
+            svg.setAttribute("viewBox", `0 0 ${boardWidth} ${boardHeight}`);
 
-            // Clean previous arrows, highlights, and annotations
-            while (svg.childNodes.length > 1) {
-                svg.removeChild(svg.lastChild);
-            }
+            // Clean previous arrows, highlights, and annotations but keep defs
+            Array.from(svg.children).forEach(c => {
+                if (c.tagName.toLowerCase() !== 'defs') c.remove();
+            });
 
             if (showArrows === false) {
                 svg.style.display = "none";
@@ -510,9 +516,8 @@ window.injectedStealthFunction = function() {
                 svg.style.display = "block";
             }
 
-            // Helper calculations
-            const sqW = rect.width / 8;
-            const sqH = rect.height / 8;
+            const sqW = boardWidth / 8;
+            const sqH = boardHeight / 8;
 
             function sqToCoords(sq) {
                 const colChar = sq[0];
@@ -535,7 +540,7 @@ window.injectedStealthFunction = function() {
             moves.forEach((m, idx) => {
                 let val = 0.0;
                 let isMate = false;
-                if (m.score.includes("M")) {
+                if (m.score && m.score.includes("M")) {
                     isMate = true;
                     val = m.score.includes("-") ? -1000.0 : 1000.0;
                 } else {
@@ -552,32 +557,32 @@ window.injectedStealthFunction = function() {
             for (let idx = moves.length - 1; idx >= 0; idx--) {
                 const m = moves[idx];
                 const moveUci = m.move;
-                if (moveUci.length < 4) continue;
+                if (!moveUci || moveUci.length < 4) continue;
 
                 const scoreVal = parsedScores[idx].val;
                 const isMate = parsedScores[idx].isMate;
 
                 // Classify move quality & colors
-                let color = "rgba(240, 150, 20, 0.7)";
-                let strokeWidth = idx === 0 ? 5.5 : 3.5;
-                let markerSize = idx === 0 ? 17 : 13;
+                let color = "rgba(240, 150, 20, 0.85)";
+                let strokeWidth = idx === 0 ? Math.max(4, sqW * 0.12) : Math.max(2.5, sqW * 0.08);
+                let markerSize = idx === 0 ? Math.max(14, sqW * 0.32) : Math.max(10, sqW * 0.24);
 
                 if (isMate) {
-                    color = "rgba(138, 43, 226, 0.8)";
+                    color = "rgba(138, 43, 226, 0.9)";
                 } else if (idx === 0) {
                     if (scoreVal >= 3.5) {
-                        color = "rgba(27, 172, 166, 0.85)";
+                        color = "rgba(27, 172, 166, 0.9)";
                     } else {
-                        color = "rgba(38, 187, 92, 0.85)";
+                        color = "rgba(38, 187, 92, 0.9)";
                     }
                 } else {
                     const diff = Math.abs(bestScoreVal - scoreVal);
                     if (diff >= 2.0) {
-                        color = "rgba(235, 60, 60, 0.85)";
+                        color = "rgba(235, 60, 60, 0.9)";
                     } else if (diff >= 1.0) {
-                        color = "rgba(240, 100, 40, 0.75)";
+                        color = "rgba(240, 100, 40, 0.85)";
                     } else if (diff <= 0.35) {
-                        color = "rgba(149, 183, 33, 0.8)";
+                        color = "rgba(149, 183, 33, 0.85)";
                     }
                 }
 
@@ -588,30 +593,30 @@ window.injectedStealthFunction = function() {
 
                 // A. Draw square highlights
                 const startHighlight = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-                startHighlight.setAttribute("x", (fromC.col * sqW + 3).toString());
-                startHighlight.setAttribute("y", (fromC.row * sqH + 3).toString());
-                startHighlight.setAttribute("width", (sqW - 6).toString());
-                startHighlight.setAttribute("height", (sqH - 6).toString());
+                startHighlight.setAttribute("x", (fromC.col * sqW + 2).toString());
+                startHighlight.setAttribute("y", (fromC.row * sqH + 2).toString());
+                startHighlight.setAttribute("width", (sqW - 4).toString());
+                startHighlight.setAttribute("height", (sqH - 4).toString());
                 startHighlight.setAttribute("rx", "6");
                 startHighlight.setAttribute("fill", color);
-                startHighlight.setAttribute("fill-opacity", idx === 0 ? "0.15" : "0.08");
+                startHighlight.setAttribute("fill-opacity", idx === 0 ? "0.22" : "0.12");
                 startHighlight.setAttribute("stroke", color);
-                startHighlight.setAttribute("stroke-width", idx === 0 ? "2" : "1.2");
+                startHighlight.setAttribute("stroke-width", idx === 0 ? "2.5" : "1.5");
                 svg.appendChild(startHighlight);
 
                 const endHighlight = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-                endHighlight.setAttribute("x", (toC.col * sqW + 3).toString());
-                endHighlight.setAttribute("y", (toC.row * sqH + 3).toString());
-                endHighlight.setAttribute("width", (sqW - 6).toString());
-                endHighlight.setAttribute("height", (sqH - 6).toString());
+                endHighlight.setAttribute("x", (toC.col * sqW + 2).toString());
+                endHighlight.setAttribute("y", (toC.row * sqH + 2).toString());
+                endHighlight.setAttribute("width", (sqW - 4).toString());
+                endHighlight.setAttribute("height", (sqH - 4).toString());
                 endHighlight.setAttribute("rx", "6");
                 endHighlight.setAttribute("fill", color);
-                endHighlight.setAttribute("fill-opacity", idx === 0 ? "0.15" : "0.08");
+                endHighlight.setAttribute("fill-opacity", idx === 0 ? "0.22" : "0.12");
                 endHighlight.setAttribute("stroke", color);
-                endHighlight.setAttribute("stroke-width", idx === 0 ? "2" : "1.2");
+                endHighlight.setAttribute("stroke-width", idx === 0 ? "2.5" : "1.5");
                 svg.appendChild(endHighlight);
 
-                // B. Draw arrows
+                // B. Draw arrows with proportional padding
                 const dx = toC.x - fromC.x;
                 const dy = toC.y - fromC.y;
                 const length = Math.hypot(dx, dy);
@@ -619,8 +624,8 @@ window.injectedStealthFunction = function() {
 
                 const ux = dx / length;
                 const uy = dy / length;
-                const paddingStart = 10;
-                const paddingEnd = 24;
+                const paddingStart = Math.min(length * 0.15, sqW * 0.18);
+                const paddingEnd = Math.min(length * 0.35, sqW * 0.35);
                 const startX = fromC.x + ux * paddingStart;
                 const startY = fromC.y + uy * paddingStart;
                 const endX = fromC.x + ux * (length - paddingEnd);
@@ -633,8 +638,8 @@ window.injectedStealthFunction = function() {
                 shadowLine.setAttribute("x2", endX.toString());
                 shadowLine.setAttribute("y2", endY.toString());
                 shadowLine.setAttribute("stroke", "black");
-                shadowLine.setAttribute("stroke-opacity", "0.4");
-                shadowLine.setAttribute("stroke-width", (strokeWidth + 3.5).toString());
+                shadowLine.setAttribute("stroke-opacity", "0.5");
+                shadowLine.setAttribute("stroke-width", (strokeWidth + 3).toString());
                 shadowLine.setAttribute("stroke-linecap", "round");
                 svg.appendChild(shadowLine);
 
@@ -660,7 +665,7 @@ window.injectedStealthFunction = function() {
                 const arrowHeadShadow = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
                 arrowHeadShadow.setAttribute("points", `${p1x+1},${p1y+1.5} ${p2x+1},${p2y+1.5} ${p3x+1},${p3y+1.5}`);
                 arrowHeadShadow.setAttribute("fill", "black");
-                arrowHeadShadow.setAttribute("fill-opacity", "0.4");
+                arrowHeadShadow.setAttribute("fill-opacity", "0.5");
                 svg.appendChild(arrowHeadShadow);
 
                 const arrowHead = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
@@ -668,11 +673,11 @@ window.injectedStealthFunction = function() {
                 arrowHead.setAttribute("fill", color);
                 svg.appendChild(arrowHead);
 
-                // Draw start dot node
+                // Start node circle
                 const startDot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
                 startDot.setAttribute("cx", startX.toString());
                 startDot.setAttribute("cy", startY.toString());
-                startDot.setAttribute("r", (strokeWidth * 1.1).toString());
+                startDot.setAttribute("r", (strokeWidth * 1.2).toString());
                 startDot.setAttribute("fill", color);
                 startDot.setAttribute("stroke", "white");
                 startDot.setAttribute("stroke-width", "1");
