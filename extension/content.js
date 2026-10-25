@@ -350,8 +350,9 @@
             return;
         }
 
+        const renderKey = `${uciMove}:${isWhiteBottom ? "white" : "black"}`;
         const currentLayer = document.getElementById("csp5-arrow-layer");
-        if (uciMove === lastRenderedMove && currentLayer) {
+        if (renderKey === lastRenderedMove && currentLayer) {
             const rect = boardEl.getBoundingClientRect();
             Object.assign(currentLayer.style, {
                 position: "fixed",
@@ -444,7 +445,7 @@
                      fill="#00f0ff" opacity="0.95" filter="url(#csp5-glow)" />
         `;
 
-        lastRenderedMove = uciMove;
+        lastRenderedMove = renderKey;
     }
 
     // ====================================================================
