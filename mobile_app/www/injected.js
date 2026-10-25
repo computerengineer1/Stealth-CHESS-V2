@@ -1,10 +1,23 @@
 window.injectedStealthFunction = function() {
+    const isPermittedStudyPage = () => {
+        const host = window.location.hostname.toLowerCase();
+        const path = window.location.pathname.toLowerCase();
+        const isChessCom = host === "chess.com" || host.endsWith(".chess.com");
+        const isLichess = host === "lichess.org" || host.endsWith(".lichess.org");
+        return (isChessCom && /^\/analysis(?:\/|$)/.test(path)) ||
+               (isLichess && (/^\/analysis(?:\/|$)/.test(path) || /^\/study(?:\/|$)/.test(path)));
+    };
+
+    if (!isPermittedStudyPage()) {
+        console.info("Chess Study Overlay: disabled outside study / analysis pages.");
+        return;
+    }
     if (window.__stealth_assistant_running) {
-        console.log("Stealth Injected Script is already running.");
+        console.log("Chess Study Overlay is already running.");
         return;
     }
     window.__stealth_assistant_running = true;
-    console.log("Stealth Injected Script Loaded successfully!");
+    console.log("Chess Study Overlay loaded in study mode.");
 
     // State & Configuration
     window.__stealth_ui_hidden = false;
@@ -13,18 +26,14 @@ window.injectedStealthFunction = function() {
     window.__stealth_last_known_score = "0.00";
     window.__stealth_last_best_move = "";
 
-    // Use native setTimeout with iOS WKWebView fallback
-    let nativeSetTimeout = window.setTimeout.bind(window);
-    try {
-        const frame = document.createElement('iframe');
-        frame.style.display = 'none';
-        frame.src = 'about:blank';
-        document.documentElement.appendChild(frame);
-        if (frame.contentWindow && frame.contentWindow.setTimeout) {
-            nativeSetTimeout = frame.contentWindow.setTimeout.bind(frame.contentWindow);
-        }
-    } catch (e) {
-        console.log("Using fallback setTimeout.");
+    // Use normal WebView timers; no isolated-frame API bypass is needed in study mode.
+    const nativeSetTimeout = window.setTimeout.bind(window);
+
+    function clearOverlayOutsideStudyMode() {
+        ["stealth-board-overlay", "stealth-hud-card", "stealth-floating-badge", "stealth-toast"].forEach(id => {
+            const element = document.getElementById(id);
+            if (element) element.remove();
+        });
     }
 
     // ====================================================================
@@ -312,6 +321,11 @@ window.injectedStealthFunction = function() {
     //  Lichess.org Board Scanner
     // ====================================================================
     function scanLichessBoard() {
+        if (!isPermittedStudyPage()) {
+            clearOverlayOutsideStudyMode();
+            nativeSetTimeout(scanLichessBoard, 300);
+            return;
+        }
         try {
             const cgBoard = document.querySelector('cg-board');
             if (!cgBoard) {
@@ -472,6 +486,11 @@ window.injectedStealthFunction = function() {
     //  Main Chess.com Scanning Loop
     // ====================================================================
     function scanChessBoard() {
+        if (!isPermittedStudyPage()) {
+            clearOverlayOutsideStudyMode();
+            nativeSetTimeout(scanChessBoard, 300);
+            return;
+        }
         try {
             const boardElement = findChessBoard();
             if (!boardElement) {
@@ -620,6 +639,10 @@ window.injectedStealthFunction = function() {
     //  High-Performance SVG Overlay Drawer
     // ====================================================================
     window.drawStealthOverlay = function(moves, isWhiteBottom, timeLeft, showArrows, showHud, stealthScreen, soundEnabled) {
+        if (!isPermittedStudyPage()) {
+            clearOverlayOutsideStudyMode();
+            return;
+        }
         window.__stealth_settings_arrows = (showArrows !== false);
         window.__stealth_settings_hud = (showHud !== false);
         window.__stealth_settings_secure = (stealthScreen !== false);

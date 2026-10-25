@@ -79,20 +79,16 @@ class OverlayWindow(QWidget):
             self.update()
 
     def set_stealth_mode(self, enabled: bool):
-        """Dynamically toggle window visibility to screen recording/streaming tools."""
+        """Keep the study overlay visible to normal screen capture tools."""
+        Config.STEALTH_DISPLAY = False
         if sys.platform == "win32":
             try:
                 hwnd = int(self.winId())
-                if enabled:
-                    # Try WDA_EXCLUDEFROMCAPTURE (0x11) on Win10 2004+, fallback to WDA_MONITOR (0x01)
-                    res = ctypes.windll.user32.SetWindowDisplayAffinity(hwnd, 0x00000011)
-                    if not res:
-                        ctypes.windll.user32.SetWindowDisplayAffinity(hwnd, 0x00000001)
-                else:
-                    ctypes.windll.user32.SetWindowDisplayAffinity(hwnd, 0x00000000)
-                print(f"Stealth display mode set to: {enabled}")
+                # WDA_NONE: do not exclude this study window from capture.
+                ctypes.windll.user32.SetWindowDisplayAffinity(hwnd, 0x00000000)
             except Exception as e:
-                print(f"Failed to set screen capture display affinity: {e}")
+                print(f"Could not reset capture visibility: {e}")
+        print("Study overlay remains visible to screen capture.")
 
     def update_data(self, moves: List[Tuple[str, str]], board_bbox: Tuple[int, int, int, int], is_white_bottom: bool, time_left: float):
         """Thread-safe update of the drawing data."""
@@ -305,16 +301,28 @@ class OverlayWindow(QWidget):
         """Draws a beautiful, floating glassmorphic dashboard next to the board."""
         hud_w = 260
         hud_h = 320
-        
-        # Decide if HUD fits on the right or the left side of the board
+        margin = 12
+
+        # Never draw the detailed HUD over the playable squares. Prefer a side
+        # column; fall back to a clear strip above/below the board, otherwise
+        # omit the HUD for this frame rather than obscure pieces or arrows.
+        if self.width() < hud_w + margin * 2 or self.height() < hud_h + margin * 2:
+            return
+
         if board_left + board_w + hud_w + 30 <= self.width():
             hud_x = board_left + board_w + 25
-        elif board_left - hud_w - 25 >= 0:
+            hud_y = max(margin, min(board_top, self.height() - hud_h - margin))
+        elif board_left - hud_w - 25 >= margin:
             hud_x = board_left - hud_w - 25
+            hud_y = max(margin, min(board_top, self.height() - hud_h - margin))
+        elif board_top - hud_h - margin >= margin:
+            hud_x = max(margin, min(board_left, self.width() - hud_w - margin))
+            hud_y = board_top - hud_h - margin
+        elif board_top + board_h + hud_h + margin <= self.height() - margin:
+            hud_x = max(margin, min(board_left, self.width() - hud_w - margin))
+            hud_y = board_top + board_h + margin
         else:
-            hud_x = board_left + board_w - hud_w - 10
-            
-        hud_y = board_top
+            return
         
         # Draw soft outer card shadow
         painter.setBrush(QColor(0, 0, 0, 160))

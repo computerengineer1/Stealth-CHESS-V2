@@ -1,31 +1,31 @@
 // ==UserScript==
-// @name         Grandmaster Chess Studio PRO — Live Chess.com & Lichess Sync
+// @name         Chess Study Overlay — Analysis Mode
 // @namespace    https://grandmaster.studio
-// @version      5.1
-// @description  Zero-latency live synchronization & tactical on-board arrows for Chess.com & Lichess
-// @author       Grandmaster Studio
-// @match        https://chess.com/*
-// @match        https://www.chess.com/*
-// @match        https://*.chess.com/*
-// @match        http://chess.com/*
-// @match        http://www.chess.com/*
-// @match        http://*.chess.com/*
-// @match        https://lichess.org/*
-// @match        https://*.lichess.org/*
-// @include      *://chess.com/*
-// @include      *://*.chess.com/*
-// @include      *://lichess.org/*
-// @include      *://*.lichess.org/*
-// @icon         https://www.google.com/s2/favicons?domain=chess.com
+// @version      5.2
+// @description  Optional move-arrow visualization for permitted chess analysis and study pages only
+// @match        https://chess.com/analysis*
+// @match        https://www.chess.com/analysis*
+// @match        https://*.chess.com/analysis*
 // @grant        GM_xmlhttpRequest
 // @connect      127.0.0.1
 // @connect      localhost
-// @connect      *
 // @run-at       document-idle
 // ==/UserScript==
 
 (function () {
     'use strict';
+
+    const isPermittedStudyPage = () => {
+        const host = window.location.hostname.toLowerCase();
+        const path = window.location.pathname.toLowerCase();
+        const isChessCom = host === "chess.com" || host.endsWith(".chess.com");
+        return isChessCom && /^\/analysis(?:\/|$)/.test(path);
+    };
+
+    if (!isPermittedStudyPage()) {
+        console.info("Chess Study Overlay: disabled outside study / analysis pages.");
+        return;
+    }
 
     const BRIDGE_URL = "http://127.0.0.1:5005/";
     const AUTH_URL = "http://127.0.0.1:5005/auth";
@@ -140,7 +140,8 @@
 
         // 2. Active turn from board highlights (previous move indicators)
         let detectedTurn = null;
-        const highlights = boardEl.querySelectorAll('.highlight');
+        const boardRoot = boardEl.shadowRoot || boardEl;
+        const highlights = boardRoot.querySelectorAll('.highlight');
         if (highlights && highlights.length >= 2) {
             for (let i = 0; i < highlights.length; i++) {
                 const hl = highlights[i];
@@ -149,7 +150,7 @@
                     if (c.startsWith("square-")) sqCoord = c;
                 });
                 if (sqCoord) {
-                    const piece = boardEl.querySelector(`.piece.${sqCoord}`);
+                    const piece = boardRoot.querySelector(`.piece.${sqCoord}`);
                     if (piece) {
                         piece.classList.forEach(c => {
                             if (c.length === 2 && ['p', 'n', 'b', 'r', 'q', 'k'].includes(c[1].toLowerCase())) {
@@ -205,7 +206,11 @@
         const boardEl = document.querySelector('wc-chess-board') || document.querySelector('.board');
         if (!boardEl) return null;
 
-        const pieces = boardEl.querySelectorAll('.piece');
+        const boardRoot = boardEl.shadowRoot || boardEl;
+        let pieces = boardRoot.querySelectorAll('.piece, piece, [class*="piece "]');
+        if (!pieces || pieces.length === 0) {
+            pieces = boardEl.querySelectorAll('.piece');
+        }
         if (!pieces || pieces.length === 0) return null;
 
         const info = detectGameDetails(boardEl);
@@ -227,6 +232,9 @@
                     if (coord.length === 2) {
                         file = parseInt(coord[0], 10);
                         rank = parseInt(coord[1], 10);
+                    } else if (coord.length === 4) {
+                        file = parseInt(coord.substring(0, 2), 10);
+                        rank = parseInt(coord.substring(2, 4), 10);
                     }
                 }
             });
@@ -269,13 +277,32 @@
     }
 
     function drawOnBoardArrow(boardEl, uciMove, isWhiteBottom) {
-        if (!uciMove || uciMove.length < 4) {
+        if (!isPermittedStudyPage()) {
+            removeOnBoardArrow();
+            return;
+        }
+        if (!boardEl || !uciMove || uciMove.length < 4) {
             removeOnBoardArrow();
             return;
         }
 
-        if (uciMove === lastRenderedMove && document.getElementById("csp5-arrow-layer")) {
-            return; // Already rendering this move
+        const renderKey = `${uciMove}:${isWhiteBottom ? "white" : "black"}`;
+        const existingLayer = document.getElementById("csp5-arrow-layer");
+        if (renderKey === lastRenderedMove && existingLayer) {
+            const rect = boardEl.getBoundingClientRect();
+            Object.assign(existingLayer.style, {
+                position: "fixed",
+                top: rect.top + "px",
+                left: rect.left + "px",
+                width: rect.width + "px",
+                height: rect.height + "px",
+                pointerEvents: "none",
+                zIndex: "2147483647",
+                overflow: "visible",
+                margin: "0",
+                transform: "none"
+            });
+            return;
         }
 
         const fromCol = uciMove.charCodeAt(0) - 97; // 0..7
@@ -310,27 +337,32 @@
         const rightX = x2 - headLen * Math.cos(angle) - headWidth * Math.sin(angle);
         const rightY = y2 - headLen * Math.sin(angle) + headWidth * Math.cos(angle);
 
-        if (window.getComputedStyle(boardEl).position === "static") {
-            boardEl.style.position = "relative";
+        const boardRect = boardEl.getBoundingClientRect();
+        if (!boardRect.width || !boardRect.height || !document.body) {
+            removeOnBoardArrow();
+            return;
         }
 
+        // A document-level fixed SVG avoids being hidden inside Chess.com's board component.
         let svg = document.getElementById("csp5-arrow-layer");
         if (!svg) {
             svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
             svg.id = "csp5-arrow-layer";
-            Object.assign(svg.style, {
-                position: "absolute",
-                top: "0",
-                left: "0",
-                width: "100%",
-                height: "100%",
-                pointerEvents: "none",
-                zIndex: "9999",
-                overflow: "visible"
-            });
-            svg.setAttribute("viewBox", "0 0 100 100");
-            boardEl.appendChild(svg);
+            document.body.appendChild(svg);
         }
+        Object.assign(svg.style, {
+            position: "fixed",
+            top: boardRect.top + "px",
+            left: boardRect.left + "px",
+            width: boardRect.width + "px",
+            height: boardRect.height + "px",
+            pointerEvents: "none",
+            zIndex: "2147483647",
+            overflow: "visible",
+            margin: "0",
+            transform: "none"
+        });
+        svg.setAttribute("viewBox", "0 0 100 100");
 
         svg.innerHTML = `
             <defs>
@@ -352,7 +384,7 @@
                      fill="#00f0ff" opacity="0.95" filter="url(#csp5-glow)" />
         `;
 
-        lastRenderedMove = uciMove;
+        lastRenderedMove = renderKey;
     }
 
     // ── Continuous Best Move Poller for Active Turn ──
@@ -373,6 +405,13 @@
 
     // ── Main Scan Loop ──
     function scanAndSync() {
+        if (!isPermittedStudyPage()) {
+            removeOnBoardArrow();
+            currentBestMove = "";
+            badge.style.display = "none";
+            return;
+        }
+        badge.style.display = "block";
         const data = readChessCom();
         if (!data) return;
 

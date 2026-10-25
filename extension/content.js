@@ -1,16 +1,24 @@
 (async function() {
-    // 🛡️ Stealth DOM Reader Bypass (Anti-Cheat Invisible)
-    // Creates an isolated iframe to grab unhooked, native browser functions.
-    // This bypasses overrides on fetch() and setTimeout().
-    const frame = document.createElement('iframe');
-    frame.style.display = 'none';
-    frame.src = 'about:blank';
-    document.documentElement.appendChild(frame);
-    
-    // Grab unhooked native functions from the clean iframe
-    const nativeFetch = frame.contentWindow.fetch;
-    const nativeSetTimeout = frame.contentWindow.setTimeout;
-    
+    // This adapter is intentionally limited to explicit study / analysis pages.
+    // It does not read live-match boards or provide move suggestions during live play.
+    const isPermittedStudyPage = () => {
+        const host = window.location.hostname.toLowerCase();
+        const path = window.location.pathname.toLowerCase();
+        const isChessCom = host === "chess.com" || host.endsWith(".chess.com");
+        const isLichess = host === "lichess.org" || host.endsWith(".lichess.org");
+        return (isChessCom && /^\/analysis(?:\/|$)/.test(path)) ||
+               (isLichess && (/^\/analysis(?:\/|$)/.test(path) || /^\/study(?:\/|$)/.test(path)));
+    };
+
+    if (!isPermittedStudyPage()) {
+        console.info("Chess Helper: disabled outside study / analysis pages.");
+        return;
+    }
+
+    // Use the page's standard APIs; no isolated-frame bypass.
+    const nativeFetch = window.fetch.bind(window);
+    const nativeSetTimeout = window.setTimeout.bind(window);
+
     // Check if the local Python server is authenticated (license is active)
     async function checkAuth() {
         try {
@@ -57,7 +65,8 @@
         const myColor = isWhiteBottom ? 'w' : 'b';
 
         let detectedTurn = null;
-        const highlights = boardEl.querySelectorAll('.highlight');
+        const boardRoot = boardEl.shadowRoot || boardEl;
+        const highlights = boardRoot.querySelectorAll('.highlight');
         if (highlights && highlights.length >= 2) {
             for (let i = 0; i < highlights.length; i++) {
                 const hl = highlights[i];
@@ -66,7 +75,7 @@
                     if (c.startsWith("square-")) sqCoord = c;
                 });
                 if (sqCoord) {
-                    const piece = boardEl.querySelector(`.piece.${sqCoord}`);
+                    const piece = boardRoot.querySelector(`.piece.${sqCoord}`);
                     if (piece) {
                         piece.classList.forEach(c => {
                             if (c.length === 2 && ['p', 'n', 'b', 'r', 'q', 'k'].includes(c[1].toLowerCase())) {
@@ -99,13 +108,22 @@
     //  Chess.com Board Reader
     // ====================================================================
     function readBoardChessCom() {
+        if (!isPermittedStudyPage()) {
+            removeOnBoardArrow();
+            nativeSetTimeout(readBoardChessCom, 350);
+            return;
+        }
         const boardEl = document.querySelector('wc-chess-board') || document.querySelector('.board');
         if (!boardEl) {
             nativeSetTimeout(readBoardChessCom, 150);
             return;
         }
 
-        const pieces = boardEl.querySelectorAll('.piece');
+        const boardRoot = boardEl.shadowRoot || boardEl;
+        let pieces = boardRoot.querySelectorAll('.piece, piece, [class*="piece "]');
+        if (!pieces.length) {
+            pieces = boardEl.querySelectorAll('.piece');
+        }
         if (!pieces.length) {
             nativeSetTimeout(readBoardChessCom, 100);
             return;
@@ -179,6 +197,11 @@
     //  Lichess.org Board Reader
     // ====================================================================
     function readBoardLichess() {
+        if (!isPermittedStudyPage()) {
+            removeOnBoardArrow();
+            nativeSetTimeout(readBoardLichess, 350);
+            return;
+        }
         let boardArray = Array(8).fill("").map(() => Array(8).fill(""));
 
         // Lichess renders pieces as <piece> elements inside cg-board
@@ -318,12 +341,31 @@
     }
 
     function drawOnBoardArrow(boardEl, uciMove, isWhiteBottom) {
+        if (!isPermittedStudyPage()) {
+            removeOnBoardArrow();
+            return;
+        }
         if (!boardEl || !uciMove || uciMove.length < 4) {
             removeOnBoardArrow();
             return;
         }
 
-        if (uciMove === lastRenderedMove && document.getElementById("csp5-arrow-layer")) {
+        const renderKey = `${uciMove}:${isWhiteBottom ? "white" : "black"}`;
+        const currentLayer = document.getElementById("csp5-arrow-layer");
+        if (renderKey === lastRenderedMove && currentLayer) {
+            const rect = boardEl.getBoundingClientRect();
+            Object.assign(currentLayer.style, {
+                position: "fixed",
+                top: rect.top + "px",
+                left: rect.left + "px",
+                width: rect.width + "px",
+                height: rect.height + "px",
+                pointerEvents: "none",
+                zIndex: "2147483647",
+                overflow: "visible",
+                margin: "0",
+                transform: "none"
+            });
             return;
         }
 
@@ -359,27 +401,33 @@
         const rightX = x2 - headLen * Math.cos(angle) - headWidth * Math.sin(angle);
         const rightY = y2 - headLen * Math.sin(angle) + headWidth * Math.cos(angle);
 
-        if (window.getComputedStyle(boardEl).position === "static") {
-            boardEl.style.position = "relative";
+        const boardRect = boardEl.getBoundingClientRect();
+        if (!boardRect.width || !boardRect.height || !document.body) {
+            removeOnBoardArrow();
+            return;
         }
 
+        // Mount at document level instead of inside Chess.com's custom element.
+        // Some board implementations use Shadow DOM and discard un-slotted children.
         let svg = document.getElementById("csp5-arrow-layer");
         if (!svg) {
             svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
             svg.id = "csp5-arrow-layer";
-            Object.assign(svg.style, {
-                position: "absolute",
-                top: "0",
-                left: "0",
-                width: "100%",
-                height: "100%",
-                pointerEvents: "none",
-                zIndex: "9999",
-                overflow: "visible"
-            });
-            svg.setAttribute("viewBox", "0 0 100 100");
-            boardEl.appendChild(svg);
+            document.body.appendChild(svg);
         }
+        Object.assign(svg.style, {
+            position: "fixed",
+            top: boardRect.top + "px",
+            left: boardRect.left + "px",
+            width: boardRect.width + "px",
+            height: boardRect.height + "px",
+            pointerEvents: "none",
+            zIndex: "2147483647",
+            overflow: "visible",
+            margin: "0",
+            transform: "none"
+        });
+        svg.setAttribute("viewBox", "0 0 100 100");
 
         svg.innerHTML = `
             <defs>
@@ -397,19 +445,24 @@
                      fill="#00f0ff" opacity="0.95" filter="url(#csp5-glow)" />
         `;
 
-        lastRenderedMove = uciMove;
+        lastRenderedMove = renderKey;
     }
 
     // ====================================================================
     //  Shared: Throttled POST to Python backend + Arrow Sync
     // ====================================================================
     function sendBoardState(boardArray, is_white_bottom, timeLeft, turn = "w", isMyTurn = true, boardEl = null) {
+        if (!isPermittedStudyPage()) {
+            removeOnBoardArrow();
+            return;
+        }
         let matrixStr = JSON.stringify(boardArray) + `:${turn}:${isMyTurn}`;
         
-        let shouldSend = (matrixStr !== lastSentMatrixStr);
+        let shouldSend = (matrixStr !== lastSentMatrixStr) || (is_white_bottom !== lastSentIsWhiteBottom);
                            
         if (shouldSend) {
             lastSentMatrixStr = matrixStr;
+            lastSentIsWhiteBottom = is_white_bottom;
             currentBestMove = "";
             removeOnBoardArrow();
 

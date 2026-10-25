@@ -233,9 +233,10 @@ class Worker(QObject):
             self.update_ui.emit([], (0, 0, 0, 0), True, 300.0) # Clear UI
 
     def toggle_stealth_mode(self):
-        Config.STEALTH_DISPLAY = not Config.STEALTH_DISPLAY
-        self.stealth_toggled.emit(Config.STEALTH_DISPLAY)
-        print(f"Global hotkey toggled stealth display to: {Config.STEALTH_DISPLAY}")
+        # Screen-capture hiding is intentionally disabled in study mode.
+        Config.STEALTH_DISPLAY = False
+        self.stealth_toggled.emit(False)
+        print("Screen-capture hiding is disabled in study mode.")
 
     def run(self):
         hotkey_stealth = getattr(Config, 'HOTKEY_STEALTH', 'ctrl+shift+s')
@@ -825,11 +826,13 @@ class ChessBotDashboard(QMainWindow):
         form_layout.addRow(lbl_arrows, self.chk_show_arrows)
 
         # Stealth Display Toggle
-        self.chk_stealth_display = QCheckBox("Hide overlay from screen recording/streaming (ON/OFF)")
-        self.chk_stealth_display.setChecked(getattr(Config, 'STEALTH_DISPLAY', True))
+        self.chk_stealth_display = QCheckBox("Screen-capture hiding (disabled in study mode)")
+        self.chk_stealth_display.setChecked(False)
+        self.chk_stealth_display.setEnabled(False)
+        self.chk_stealth_display.setToolTip("Study overlays remain visible in recordings and streams.")
         self.chk_stealth_display.stateChanged.connect(self.update_stealth_display)
         
-        lbl_stealth = QLabel("Stealth Screen / حماية البث:")
+        lbl_stealth = QLabel("Study Mode / وضع الدراسة:")
         lbl_stealth.setStyleSheet("font-weight: bold;")
         form_layout.addRow(lbl_stealth, self.chk_stealth_display)
 
@@ -1046,11 +1049,11 @@ class ChessBotDashboard(QMainWindow):
         print(f"Sync Config: SHOW_ARROWS = {Config.SHOW_ARROWS}")
 
     def update_stealth_display(self, state):
-        enabled = (state == Qt.CheckState.Checked.value)
-        Config.STEALTH_DISPLAY = enabled
+        # Kept as a handler for older UI state; capture exclusion is disabled.
+        Config.STEALTH_DISPLAY = False
         if self.overlay:
-            self.overlay.set_stealth_mode(enabled)
-        print(f"Sync Config: STEALTH_DISPLAY = {Config.STEALTH_DISPLAY}")
+            self.overlay.set_stealth_mode(False)
+        print("Screen-capture hiding is disabled in study mode.")
 
     def update_sound_enabled(self, state):
         enabled = (state == Qt.CheckState.Checked.value)
@@ -1059,10 +1062,12 @@ class ChessBotDashboard(QMainWindow):
 
     def handle_stealth_toggled_from_worker(self, enabled):
         self.chk_stealth_display.blockSignals(True)
-        self.chk_stealth_display.setChecked(Qt.CheckState.Checked if enabled else Qt.CheckState.Unchecked)
+        self.chk_stealth_display.setChecked(False)
         self.chk_stealth_display.blockSignals(False)
+        self.chk_stealth_display.setEnabled(False)
+        Config.STEALTH_DISPLAY = False
         if self.overlay:
-            self.overlay.set_stealth_mode(enabled)
+            self.overlay.set_stealth_mode(False)
  
     def update_threads(self, val):
         Config.ENGINE_THREADS = val
@@ -1132,7 +1137,7 @@ class ChessBotDashboard(QMainWindow):
             chrome_exe,
             f"--load-extension={ext_path}",
             f"--user-data-dir={profile_path}",
-            "https://www.chess.com/play/online"
+            "https://www.chess.com/analysis"
         ]
         
         print(f"Launching Chrome via: {' '.join(cmd)}")
