@@ -1,36 +1,59 @@
 window.injectedStealthFunction = function() {
-    const isPermittedStudyPage = () => {
+    // Supports study/analysis pages AND live games against people.
+    const isPermittedPage = () => {
         const host = window.location.hostname.toLowerCase();
         const path = window.location.pathname.toLowerCase();
         const isChessCom = host === "chess.com" || host.endsWith(".chess.com");
         const isLichess = host === "lichess.org" || host.endsWith(".lichess.org");
-        return (isChessCom && /^\/analysis(?:\/|$)/.test(path)) ||
-               (isLichess && (/^\/analysis(?:\/|$)/.test(path) || /^\/study(?:\/|$)/.test(path)));
+        if (isChessCom) {
+            return /^\/(analysis|live|online|game)(?:\/|$)/.test(path);
+        }
+        if (isLichess) {
+            return /^\/(analysis|study|future|simul|round)(?:\/|$)/.test(path) ||
+                   /^[a-z]{2}[a-z0-9]{6}(?:$|\/black$|\/white$|\/play$)/.test(path.replace(/^\//, ""));
+        }
+        return false;
     };
+    window.__stealth_is_permitted_page = isPermittedPage;
 
-    if (!isPermittedStudyPage()) {
-        console.info("Chess Study Overlay: disabled outside study / analysis pages.");
+    if (!isPermittedPage()) {
+        console.info("Chess Helper: disabled outside supported pages.");
         return;
     }
     if (window.__stealth_assistant_running) {
-        console.log("Chess Study Overlay is already running.");
+        console.log("Chess Helper is already running.");
         return;
     }
     window.__stealth_assistant_running = true;
-    console.log("Chess Study Overlay loaded in study mode.");
+    console.log("Chess Helper loaded (study + live games supported).");
 
     // State & Configuration
     window.__stealth_ui_hidden = false;
-    window.__stealth_hud_minimized = false;
     window.__stealth_sound_enabled = true;
-    window.__stealth_last_known_score = "0.00";
     window.__stealth_last_best_move = "";
+
+    // LOW-DEVICE PERFORMANCE PROFILE
+    // The heavy SVG drop-shadow / glow filters are GPU killers on older phones
+    // (e.g. iPhone 11 Pro). We detect weak devices once and skip filters,
+    // shadows and extra DOM nodes entirely for a rock-solid smooth framerate.
+    const isLowPowerDevice = (() => {
+        try {
+            const mem = navigator.deviceMemory || 4;          // GB (Safari reports undefined -> assume mid)
+            const cores = navigator.hardwareConcurrency || 4; // CPU threads
+            const ua = navigator.userAgent || "";
+            const isOldIOS = /iPhone|iPad|iPod/.test(ua) && !/CPU OS (1[5-9]|2[0-9])_/.test(ua.replace(/_/g, "."));
+            return mem <= 4 || cores <= 4 || isOldIOS;
+        } catch (e) {
+            return true; // when in doubt, favour smoothness
+        }
+    })();
+    window.__stealth_low_power = isLowPowerDevice;
 
     // Use normal WebView timers; no isolated-frame API bypass is needed in study mode.
     const nativeSetTimeout = window.setTimeout.bind(window);
 
     function clearOverlayOutsideStudyMode() {
-        ["stealth-board-overlay", "stealth-hud-card", "stealth-floating-badge", "stealth-toast"].forEach(id => {
+        ["stealth-board-overlay", "stealth-hud-card", "stealth-floating-badge", "stealth-assistant-hud", "stealth-toast"].forEach(id => {
             const element = document.getElementById(id);
             if (element) element.remove();
         });
@@ -286,7 +309,7 @@ window.injectedStealthFunction = function() {
         const domSvg = document.getElementById("stealth-board-overlay");
         if (!domSvg) return;
 
-        if (window.__stealth_ui_hidden || window.__stealth_settings_arrows === false) {
+        if (window.__stealth_settings_arrows === false) {
             domSvg.style.display = "none";
             return;
         }
@@ -321,7 +344,7 @@ window.injectedStealthFunction = function() {
     //  Lichess.org Board Scanner
     // ====================================================================
     function scanLichessBoard() {
-        if (!isPermittedStudyPage()) {
+        if (!isPermittedPage()) {
             clearOverlayOutsideStudyMode();
             nativeSetTimeout(scanLichessBoard, 300);
             return;
@@ -455,15 +478,15 @@ window.injectedStealthFunction = function() {
 
         if (boardChanged && lastSentMatrixStr !== "") {
             // Position changed on the board! Instantly clear outdated arrows
-            // and show calculating indicator on HUD so user doesn't follow old tactics
+            // so the user never follows stale analysis (no HUD is drawn — removed by design).
             const domSvg = document.getElementById("stealth-board-overlay");
             if (domSvg) {
                 Array.from(domSvg.children).forEach(c => {
                     if (c.tagName.toLowerCase() !== 'defs') c.remove();
                 });
             }
-            // Update HUD into calculating state while keeping last known score
-            drawGameHud([], timeLeft, window.__stealth_settings_hud !== false, true);
+            // Live games: instantly blank the overlay for a snappy, lag-free feel.
+            window.__stealth_last_best_move = "";
         }
 
         if (shouldSend) {
@@ -486,7 +509,7 @@ window.injectedStealthFunction = function() {
     //  Main Chess.com Scanning Loop
     // ====================================================================
     function scanChessBoard() {
-        if (!isPermittedStudyPage()) {
+        if (!isPermittedPage()) {
             clearOverlayOutsideStudyMode();
             nativeSetTimeout(scanChessBoard, 300);
             return;
@@ -639,20 +662,13 @@ window.injectedStealthFunction = function() {
     //  High-Performance SVG Overlay Drawer
     // ====================================================================
     window.drawStealthOverlay = function(moves, isWhiteBottom, timeLeft, showArrows, showHud, stealthScreen, soundEnabled) {
-        if (!isPermittedStudyPage()) {
+        if (!isPermittedPage()) {
             clearOverlayOutsideStudyMode();
             return;
         }
         window.__stealth_settings_arrows = (showArrows !== false);
-        window.__stealth_settings_hud = (showHud !== false);
-        window.__stealth_settings_secure = (stealthScreen !== false);
         if (soundEnabled !== undefined) {
             window.__stealth_sound_enabled = soundEnabled;
-        }
-
-        if (window.__stealth_ui_hidden) {
-            showArrows = false;
-            showHud = false;
         }
 
         try {
@@ -669,20 +685,22 @@ window.injectedStealthFunction = function() {
                 svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
                 svg.setAttribute("id", "stealth-board-overlay");
 
-                const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-                defs.innerHTML = `
-                    <filter id="stealth-shadow" x="-30%" y="-30%" width="160%" height="160%">
-                        <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="black" flood-opacity="0.85"/>
-                    </filter>
-                    <filter id="stealth-glow" x="-30%" y="-30%" width="160%" height="160%">
-                        <feGaussianBlur stdDeviation="3.5" result="coloredBlur"/>
-                        <feMerge>
-                            <feMergeNode in="coloredBlur"/>
-                            <feMergeNode in="SourceGraphic"/>
-                        </feMerge>
-                    </filter>
-                `;
-                svg.appendChild(defs);
+                if (!isLowPowerDevice) {
+                    const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+                    defs.innerHTML = `
+                        <filter id="stealth-shadow" x="-30%" y="-30%" width="160%" height="160%">
+                            <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="black" flood-opacity="0.85"/>
+                        </filter>
+                        <filter id="stealth-glow" x="-30%" y="-30%" width="160%" height="160%">
+                            <feGaussianBlur stdDeviation="3.5" result="coloredBlur"/>
+                            <feMerge>
+                                <feMergeNode in="coloredBlur"/>
+                                <feMergeNode in="SourceGraphic"/>
+                            </feMerge>
+                        </filter>
+                    `;
+                    svg.appendChild(defs);
+                }
                 document.body.appendChild(svg);
             }
 
@@ -704,7 +722,6 @@ window.injectedStealthFunction = function() {
 
             if (!showArrows || !moves || moves.length === 0) {
                 if (!showArrows) svg.style.display = "none";
-                drawGameHud(moves || [], timeLeft, showHud, moves.length === 0);
                 return;
             } else {
                 svg.style.display = "block";
@@ -760,8 +777,11 @@ window.injectedStealthFunction = function() {
             });
             if (parsedScores.length > 0) bestScoreVal = parsedScores[0].val;
 
-            // Render moves in reverse order so best move paints on top
-            for (let idx = moves.length - 1; idx >= 0; idx--) {
+            // Render moves in reverse order so best move paints on top.
+            // On low-power devices we cap to 2 arrows and skip every decorative
+            // node (shadows/dots) — far fewer DOM elements = zero lag.
+            const maxArrows = isLowPowerDevice ? Math.min(moves.length, 2) : moves.length;
+            for (let idx = maxArrows - 1; idx >= 0; idx--) {
                 const m = moves[idx];
                 const moveUci = m.move;
                 if (!moveUci || moveUci.length < 4) continue;
@@ -841,8 +861,8 @@ window.injectedStealthFunction = function() {
                 const endX = fromC.x + ux * (length - paddingEnd);
                 const endY = fromC.y + uy * (length - paddingEnd);
 
-                // Drop shadow line (Only for Best Move)
-                if (isTopMove) {
+                // Drop shadow line (Best Move only, skipped on low-power devices)
+                if (isTopMove && !isLowPowerDevice) {
                     const shadowLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
                     shadowLine.setAttribute("x1", startX.toString());
                     shadowLine.setAttribute("y1", startY.toString());
@@ -874,7 +894,7 @@ window.injectedStealthFunction = function() {
                 const p3x = endX - ux * markerSize - (-uy) * (markerSize * 0.65);
                 const p3y = endY - uy * markerSize - ux * (markerSize * 0.65);
 
-                if (isTopMove) {
+                if (isTopMove && !isLowPowerDevice) {
                     const arrowHeadShadow = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
                     arrowHeadShadow.setAttribute("points", `${p1x+1},${p1y+1.5} ${p2x+1},${p2y+1.5} ${p3x+1},${p3y+1.5}`);
                     arrowHeadShadow.setAttribute("fill", "black");
@@ -900,388 +920,25 @@ window.injectedStealthFunction = function() {
                 }
             }
 
-            // Draw HUD
-            drawGameHud(moves, timeLeft, showHud, false);
-
         } catch (err) {
             console.error("Stealth overlay draw error:", err);
         }
     };
 
     // ====================================================================
-    //  Modern Mobile HUD Overlay (Glassmorphism & Expand/Minimize)
+    //  HUD FULLY REMOVED BY DESIGN
+    //  The old "Stealth Assistant HUD" panel covered the live logs and the
+    //  game UI, so it has been deleted. Only board arrows remain — this also
+    //  removes a big source of DOM churn / lag on low-end phones.
     // ====================================================================
-    function drawGameHud(moves, timeLeft, showHud, isCalculating) {
-        let hud = document.getElementById("stealth-hud-card");
-        if (showHud === false || window.__stealth_ui_hidden) {
-            if (hud) hud.style.setProperty("display", "none", "important");
-            updateStealthFloatingBadge();
-            return;
-        }
-        updateStealthFloatingBadge();
-
-        if (!hud) {
-            hud = document.createElement("div");
-            hud.setAttribute("id", "stealth-hud-card");
-            Object.assign(hud.style, {
-                position: "fixed",
-                bottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
-                left: "12px",
-                right: "12px",
-                backgroundColor: "rgba(12, 12, 18, 0.94)",
-                border: "1.5px solid rgba(27, 172, 166, 0.7)",
-                borderRadius: "14px",
-                padding: "10px 14px",
-                color: "#ffffff",
-                fontFamily: "'Segoe UI', Arial, sans-serif",
-                fontSize: "12px",
-                zIndex: "999999",
-                boxShadow: "0 10px 30px rgba(0,0,0,0.6)",
-                display: "flex",
-                flexDirection: "column",
-                gap: "8px",
-                backdropFilter: "blur(12px)",
-                webkitBackdropFilter: "blur(12px)",
-                transition: "all 0.25s ease"
-            });
-            document.body.appendChild(hud);
-        }
-
-        hud.style.setProperty("display", "flex", "important");
-
-        // Format Clock
-        const m = Math.floor(timeLeft / 60);
-        const s = Math.floor(timeLeft % 60);
-        const clockStr = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
-
-        // Color state based on time
-        let borderColor = "rgba(27, 172, 166, 0.7)";
-        let timeColor = "#2ecc71";
-        let timeState = "SAFE";
-        if (timeLeft <= 15) {
-            borderColor = "rgba(235, 60, 60, 0.9)";
-            timeColor = "#ff4f4f";
-            timeState = "PANIC!";
-        } else if (timeLeft <= 60) {
-            borderColor = "rgba(240, 150, 20, 0.85)";
-            timeColor = "#f39c12";
-            timeState = "WARNING";
-        }
-        hud.style.borderColor = borderColor;
-
-        // If HUD is minimized, render sleek compact floating pill
-        if (window.__stealth_hud_minimized) {
-            hud.style.padding = "6px 12px";
-            hud.style.gap = "0";
-            hud.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <span style="font-weight:bold; color:#ff3333;">🛡️ STEALTH</span>
-                        <span style="font-size:11px; color:#2ecc71; font-weight:bold;">${window.__stealth_last_known_score}</span>
-                        <span style="font-size:10px; color:${timeColor};">⏱️ ${clockStr}</span>
-                    </div>
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <button id="stealth-btn-toggle-hud" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); border-radius:6px; color:#fff; font-size:10px; padding:3px 8px; cursor:pointer;">[+] EXPAND</button>
-                        <button id="stealth-btn-min-hide" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); border-radius:6px; color:#bbb; font-size:11px; padding:2px 6px; cursor:pointer;" title="Hide UI">👁️</button>
-                    </div>
-                </div>
-            `;
-            const expandBtn = hud.querySelector("#stealth-btn-toggle-hud");
-            if (expandBtn) {
-                expandBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    window.__stealth_hud_minimized = false;
-                    drawGameHud(moves, timeLeft, showHud, isCalculating);
-                };
-            }
-            const minHideBtn = hud.querySelector("#stealth-btn-min-hide");
-            if (minHideBtn) {
-                minHideBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    window.__stealth_ui_hidden = true;
-                    hud.style.setProperty("display", "none", "important");
-                    const domSvg = document.getElementById("stealth-board-overlay");
-                    if (domSvg) domSvg.style.setProperty("display", "none", "important");
-                    updateStealthFloatingBadge();
-                    showStealthToast("🛡️ Stealth Mode Active (Tap 🛡️ icon to restore)");
-                };
-            }
-            return;
-        }
-
-        hud.style.padding = "10px 14px";
-        hud.style.gap = "8px";
-
-        // Evaluation calculation & retention
-        let bestScore = window.__stealth_last_known_score || "0.00";
-        if (moves && moves.length > 0 && moves[0].score) {
-            bestScore = moves[0].score;
-            window.__stealth_last_known_score = bestScore;
-        }
-
-        let scoreVal = parseFloat(bestScore) || 0.0;
-        let isMate = bestScore.includes("M");
-
-        let barRatio = 50;
-        if (isMate) {
-            barRatio = bestScore.includes("-") ? 5 : 95;
-        } else {
-            let clamped = Math.max(-5.0, Math.min(5.0, scoreVal));
-            barRatio = ((clamped + 5.0) / 10.0) * 100;
-        }
-
-        // Candidate moves rows
-        let candidateRowsHtml = "";
-        if (moves && moves.length > 0) {
-            moves.forEach((item, index) => {
-                let badgeText = "GOOD";
-                let badgeBg = "rgba(240, 150, 20, 0.15)";
-                let badgeColor = "#f39c12";
-
-                if (item.score.includes("M")) {
-                    badgeText = "MATE";
-                    badgeBg = "rgba(155, 89, 182, 0.25)";
-                    badgeColor = "#9b59b6";
-                } else if (index === 0) {
-                    if (scoreVal >= 3.5) {
-                        badgeText = "BRILLIANT";
-                        badgeBg = "rgba(26, 188, 156, 0.25)";
-                        badgeColor = "#1abc9c";
-                    } else {
-                        badgeText = "BEST";
-                        badgeBg = "rgba(46, 204, 113, 0.25)";
-                        badgeColor = "#2ecc71";
-                    }
-                } else {
-                    let firstVal = parseFloat(moves[0].score) || 0.0;
-                    let currentVal = parseFloat(item.score) || 0.0;
-                    let diff = Math.abs(firstVal - currentVal);
-                    if (diff >= 2.0) {
-                        badgeText = "BLUNDER";
-                        badgeBg = "rgba(231, 76, 60, 0.25)";
-                        badgeColor = "#e74c3c";
-                    } else if (diff >= 1.0) {
-                        badgeText = "INACCURACY";
-                        badgeBg = "rgba(230, 126, 34, 0.25)";
-                        badgeColor = "#e67e22";
-                    } else if (diff <= 0.35) {
-                        badgeText = "EXCELLENT";
-                        badgeBg = "rgba(160, 212, 104, 0.25)";
-                        badgeColor = "#a0d468";
-                    }
-                }
-
-                candidateRowsHtml += `
-                    <div style="display:flex; justify-content:space-between; align-items:center; background-color:rgba(255,255,255,0.04); padding:4px 8px; border-radius:6px;">
-                        <div style="display:flex; align-items:center; gap:6px;">
-                            <span style="width:6px; height:6px; border-radius:50%; background-color:${badgeColor};"></span>
-                            <strong style="color:#f5f5f7;">${index+1}. ${item.move}</strong>
-                            <span style="color:#8a8a93; font-size:10px;">(${item.score})</span>
-                        </div>
-                        <span style="font-size:9px; font-weight:bold; background-color:${badgeBg}; color:${badgeColor}; padding:2px 6px; border-radius:4px;">${badgeText}</span>
-                    </div>
-                `;
-            });
-        } else {
-            candidateRowsHtml = `
-                <div style="display:flex; align-items:center; justify-content:center; gap:8px; padding:8px; background:rgba(255,255,255,0.03); border-radius:6px; color:#1abc9c; font-weight:600; font-size:11px;">
-                    <span style="display:inline-block; animation:stealthPulse 1.2s infinite;">⚡</span>
-                    <span>CALCULATING BEST MOVE...</span>
-                </div>
-            `;
-        }
-
-        hud.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:5px;">
-                <div style="display:flex; align-items:center; gap:6px;">
-                    <span style="font-weight:bold; letter-spacing:0.5px; color:#ff3333;">🛡️ STEALTH ASSISTANT</span>
-                    <span style="font-size:10px; color:#8a8a93;">| ⏱️ <strong style="color:${timeColor}">${clockStr}</strong></span>
-                </div>
-                <div style="display:flex; align-items:center; gap:6px;">
-                    <button id="stealth-btn-toggle-sound" style="background:none; border:none; color:#aaa; font-size:12px; cursor:pointer;" title="Toggle Sound">
-                        ${window.__stealth_sound_enabled ? '🔊' : '🔇'}
-                    </button>
-                    <button id="stealth-btn-minimize" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:4px; color:#ddd; font-size:10px; padding:2px 6px; cursor:pointer;">[-] MIN</button>
-                    <button id="stealth-btn-hide-ui" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:4px; color:#ddd; font-size:10px; padding:2px 6px; cursor:pointer;" title="Hide UI (Stealth)">👁️ HIDE</button>
-                </div>
-            </div>
-            
-            <div style="display:flex; gap:12px; align-items:center;">
-                <!-- Vertical Power Bar -->
-                <div style="width:10px; height:50px; background-color:#202026; border-radius:3px; position:relative; border:1px solid rgba(255,255,255,0.15); overflow:hidden;">
-                    <div style="position:absolute; bottom:0; left:0; width:100%; height:${barRatio}%; background:linear-gradient(to top, #2ecc71, #1abc9c); transition:height 0.3s ease;"></div>
-                </div>
-
-                <!-- Live Eval Panel -->
-                <div style="flex:1; display:flex; flex-direction:column; gap:3px;">
-                    <div style="display:flex; justify-content:space-between;">
-                        <span style="color:#8a8a93; font-size:11px;">Evaluation:</span>
-                        <strong style="color:${scoreVal >= 0 ? '#2ecc71' : '#ff4f4f'}; font-size:13px;">${scoreVal > 0 ? '+' : ''}${bestScore}</strong>
-                    </div>
-                    <div style="display:flex; justify-content:space-between;">
-                        <span style="color:#8a8a93; font-size:11px;">Time Status:</span>
-                        <span style="font-weight:bold; color:${timeColor}; font-size:11px;">${timeState}</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Candidate list or Calculating State -->
-            <div style="display:flex; flex-direction:column; gap:4px;">
-                ${candidateRowsHtml}
-            </div>
-        `;
-
-        // Bind HUD controls
-        const minBtn = hud.querySelector("#stealth-btn-minimize");
-        if (minBtn) {
-            minBtn.onclick = (e) => {
-                e.stopPropagation();
-                window.__stealth_hud_minimized = true;
-                drawGameHud(moves, timeLeft, showHud, isCalculating);
-            };
-        }
-
-        const hideBtn = hud.querySelector("#stealth-btn-hide-ui");
-        if (hideBtn) {
-            hideBtn.onclick = (e) => {
-                e.stopPropagation();
-                window.__stealth_ui_hidden = true;
-                hud.style.setProperty("display", "none", "important");
-                const domSvg = document.getElementById("stealth-board-overlay");
-                if (domSvg) domSvg.style.setProperty("display", "none", "important");
-                updateStealthFloatingBadge();
-                showStealthToast("🛡️ Stealth Mode Active (Tap 🛡️ icon to restore)");
-            };
-        }
-
-        const sndBtn = hud.querySelector("#stealth-btn-toggle-sound");
-        if (sndBtn) {
-            sndBtn.onclick = (e) => {
-                e.stopPropagation();
-                window.__stealth_sound_enabled = !window.__stealth_sound_enabled;
-                sndBtn.textContent = window.__stealth_sound_enabled ? '🔊' : '🔇';
-                showStealthToast(window.__stealth_sound_enabled ? "🔊 Sound Enabled" : "🔇 Sound Muted");
-            };
-        }
+    function purgeLegacyHud() {
+        ["stealth-hud-card", "stealth-restore-pill", "stealth-assistant-hud", "stealth-floating-badge"].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.remove();
+        });
     }
-
-    // ====================================================================
-    //  Stealth Floating Badge (Always allows instant 1-tap restore)
-    // ====================================================================
-    function updateStealthFloatingBadge() {
-        let badge = document.getElementById("stealth-restore-pill");
-        if (!window.__stealth_ui_hidden) {
-            if (badge) badge.style.display = "none";
-            return;
-        }
-        if (!badge) {
-            badge = document.createElement("div");
-            badge.id = "stealth-restore-pill";
-            Object.assign(badge.style, {
-                position: "fixed",
-                top: "14px",
-                right: "14px",
-                width: "36px",
-                height: "36px",
-                borderRadius: "50%",
-                backgroundColor: "rgba(10, 10, 16, 0.88)",
-                border: "1.5px solid rgba(255, 51, 51, 0.65)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#ffffff",
-                fontSize: "16px",
-                cursor: "pointer",
-                zIndex: "1000001",
-                boxShadow: "0 4px 15px rgba(0,0,0,0.6)",
-                opacity: "0.65",
-                transition: "all 0.2s ease",
-                userSelect: "none",
-                webkitUserSelect: "none",
-                touchAction: "manipulation"
-            });
-            badge.innerHTML = "🛡️";
-            badge.onclick = (e) => {
-                e.stopPropagation();
-                window.__stealth_ui_hidden = false;
-                badge.style.display = "none";
-                const domSvg = document.getElementById("stealth-board-overlay");
-                const hud = document.getElementById("stealth-hud-card");
-                if (domSvg && window.__stealth_settings_arrows !== false) domSvg.style.setProperty("display", "block", "important");
-                if (hud && window.__stealth_settings_hud !== false) hud.style.setProperty("display", "flex", "important");
-                showStealthToast("🛡️ Stealth UI Restored");
-            };
-            badge.ontouchstart = () => { badge.style.opacity = "1"; };
-            badge.ontouchend = () => { badge.style.opacity = "0.65"; };
-            document.body.appendChild(badge);
-        }
-        badge.style.display = "flex";
-    }
-
-    // ====================================================================
-    //  Safe Stealth Gesture Handler (4-Tap on top status bar only)
-    // ====================================================================
-    let lastTapTime = 0;
-    let tapCount = 0;
-
-    function handleSafeTapGesture(e) {
-        // Only trigger stealth hide/show if user intentionally taps on the top 40px of screen
-        const clientY = e.clientY || (e.changedTouches && e.changedTouches[0] && e.changedTouches[0].clientY) || 0;
-        if (clientY > 45) {
-            tapCount = 0;
-            return;
-        }
-
-        // Ignore touches on chess board, pieces, squares, HUD, or interactive elements
-        if (e.target && typeof e.target.closest === "function") {
-            if (e.target.closest('wc-chess-board, chess-board, cg-board, .board, .piece, [class*="square-"], #stealth-hud-card, #stealth-restore-pill, button, input, a')) {
-                tapCount = 0;
-                return;
-            }
-        }
-
-        const now = Date.now();
-        if (now - lastTapTime < 400) {
-            tapCount++;
-            if (tapCount >= 4) {
-                window.__stealth_ui_hidden = !window.__stealth_ui_hidden;
-                tapCount = 0;
-
-                const domSvg = document.getElementById("stealth-board-overlay");
-                const hud = document.getElementById("stealth-hud-card");
-
-                if (window.__stealth_ui_hidden) {
-                    if (hud) hud.style.setProperty("display", "none", "important");
-                    if (domSvg) domSvg.style.setProperty("display", "none", "important");
-                    updateStealthFloatingBadge();
-                    showStealthToast("🛡️ Stealth Mode: Hidden");
-                } else {
-                    if (domSvg && window.__stealth_settings_arrows !== false) domSvg.style.setProperty("display", "block", "important");
-                    if (hud && window.__stealth_settings_hud !== false) hud.style.setProperty("display", "flex", "important");
-                    updateStealthFloatingBadge();
-                    showStealthToast("🛡️ Stealth Mode: Restored");
-                }
-            }
-        } else {
-            tapCount = 1;
-        }
-        lastTapTime = now;
-    }
-
-    // Listen only to pointerup (prevents double counting from touchstart + click)
-    document.addEventListener("pointerup", handleSafeTapGesture, { passive: true });
-
-    // Inject breathing pulse animation for HUD calculating state
-    const styleSheet = document.createElement("style");
-    styleSheet.type = "text/css";
-    styleSheet.innerHTML = `
-        @keyframes stealthPulse {
-            0% { transform: scale(1); opacity: 0.8; }
-            50% { transform: scale(1.2); opacity: 1; }
-            100% { transform: scale(1); opacity: 0.8; }
-        }
-    `;
-    document.head.appendChild(styleSheet);
+    purgeLegacyHud();
+    setInterval(purgeLegacyHud, 4000); // safety sweep across SPA re-renders
 
     // Start scanner based on hostname
     if (isLichess) {
