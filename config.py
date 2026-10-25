@@ -1,11 +1,17 @@
 import os
+import sys
 
 class Config:
     """Centralized configuration for the Chess Overlay Bot."""
 
     # --- Engine Settings ---
     # Default Stockfish path. User MUST update this if different.
-    STOCKFISH_PATH = r"stockfish-windows-x86-64-avx2.exe" # Change this if necessary
+    # Resolve the engine next to the packaged executable, or next to this source file in development.
+    if getattr(sys, "frozen", False) or "__compiled__" in globals():
+        _APP_DIR = os.path.dirname(os.path.abspath(sys.executable))
+    else:
+        _APP_DIR = os.path.dirname(os.path.abspath(__file__))
+    STOCKFISH_PATH = os.path.join(_APP_DIR, "stockfish-windows-x86-64-avx2.exe")
     ENGINE_THREADS = 2
     ENGINE_HASH = 64
     ENGINE_SKILL_LEVEL = 15  # ~2000 ELO Humanized
