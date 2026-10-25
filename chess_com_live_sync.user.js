@@ -6,10 +6,6 @@
 // @match        https://chess.com/analysis*
 // @match        https://www.chess.com/analysis*
 // @match        https://*.chess.com/analysis*
-// @match        https://lichess.org/analysis*
-// @match        https://lichess.org/study/*
-// @match        https://*.lichess.org/analysis*
-// @match        https://*.lichess.org/study/*
 // @grant        GM_xmlhttpRequest
 // @connect      127.0.0.1
 // @connect      localhost
@@ -23,9 +19,7 @@
         const host = window.location.hostname.toLowerCase();
         const path = window.location.pathname.toLowerCase();
         const isChessCom = host === "chess.com" || host.endsWith(".chess.com");
-        const isLichess = host === "lichess.org" || host.endsWith(".lichess.org");
-        return (isChessCom && /^\/analysis(?:\/|$)/.test(path)) ||
-               (isLichess && (/^\/analysis(?:\/|$)/.test(path) || /^\/study(?:\/|$)/.test(path)));
+        return isChessCom && /^\/analysis(?:\/|$)/.test(path);
     };
 
     if (!isPermittedStudyPage()) {
