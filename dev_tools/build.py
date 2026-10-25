@@ -53,6 +53,7 @@ def main():
         "--standalone "
         "--enable-plugin=pyqt6 "
         "--windows-console-mode=disable "
+        "--assume-yes-for-downloads "
     )
     
     if os.path.exists("logo.ico"):

@@ -229,6 +229,7 @@ class Worker(QObject):
         if not self.is_overlay_active:
             self.current_moves = []
             self.pending_moves = None
+            self.vision.set_best_move("")
             self.update_ui.emit([], (0, 0, 0, 0), True, 300.0) # Clear UI
 
     def toggle_stealth_mode(self):
@@ -273,6 +274,7 @@ class Worker(QObject):
                         else:
                             # Clear current moves instantly when a new state is detected, so old arrows vanish
                             self.current_moves = []
+                            self.vision.set_best_move("")
                             
                             # Humanize: log-normal human thinking delay model
                             base_delay = 0.5
@@ -337,12 +339,16 @@ class Worker(QObject):
                             else:
                                 self.current_moves = moves
                                 self.pending_moves = None
+                                if moves:
+                                    self.vision.set_best_move(moves[0][0])
                                 print(f"Stockfish suggests: {moves}")
                     
                 # Check if pending moves are ready to be displayed (non-blocking)
                 if self.pending_moves and time.time() >= self.show_moves_at:
                     self.current_moves = self.pending_moves
                     self.pending_moves = None
+                    if self.current_moves:
+                        self.vision.set_best_move(self.current_moves[0][0])
                     print(f"Stockfish suggests: {self.current_moves}")
 
                 # Emit UI update only when changes occur (moves, bounding box, orientation, or clock second tick)
@@ -826,6 +832,15 @@ class ChessBotDashboard(QMainWindow):
         lbl_stealth = QLabel("Stealth Screen / حماية البث:")
         lbl_stealth.setStyleSheet("font-weight: bold;")
         form_layout.addRow(lbl_stealth, self.chk_stealth_display)
+
+        # Sound Effects Toggle
+        self.chk_sound = QCheckBox("Tactical audio cues for moves & alerts (ON/OFF)")
+        self.chk_sound.setChecked(getattr(Config, 'SOUND_ENABLED', True))
+        self.chk_sound.stateChanged.connect(self.update_sound_enabled)
+
+        lbl_sound = QLabel("Sound Cues / المؤثرات الصوتية:")
+        lbl_sound.setStyleSheet("font-weight: bold;")
+        form_layout.addRow(lbl_sound, self.chk_sound)
         
         # Thread Count
         self.spin_threads = QSpinBox()
@@ -1036,6 +1051,11 @@ class ChessBotDashboard(QMainWindow):
         if self.overlay:
             self.overlay.set_stealth_mode(enabled)
         print(f"Sync Config: STEALTH_DISPLAY = {Config.STEALTH_DISPLAY}")
+
+    def update_sound_enabled(self, state):
+        enabled = (state == Qt.CheckState.Checked.value)
+        Config.SOUND_ENABLED = enabled
+        print(f"Sync Config: SOUND_ENABLED = {Config.SOUND_ENABLED}")
 
     def handle_stealth_toggled_from_worker(self, enabled):
         self.chk_stealth_display.blockSignals(True)

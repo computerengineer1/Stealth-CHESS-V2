@@ -3,7 +3,7 @@
 // Configuration & Default State
 const Config = {
     LICENSE_API_URL: "https://gist.githubusercontent.com/computerengineer1/c6b0466a666549755c0c149fbff7dbdd/raw/db.txt",
-    SECRET_KEY: "STEALTH_CHESS_SECRET_KEY_2026",
+    SECRET_KEY: "STEALTH_CHESS_SECURE_V4_KEY_2026_PRO",
     STOCKFISH_URL: "stockfish-18-lite-single.js"
 };
 
@@ -34,6 +34,7 @@ let appState = {
     engineThreads: 2,
     showArrows: true,
     showHud: true,
+    soundEnabled: true,
     stealthScreen: true,
     fullscreenMode: true,
     
@@ -67,18 +68,37 @@ document.addEventListener("DOMContentLoaded", () => {
     if (deviceIdBox) {
         const myDeviceId = getDeviceId();
         deviceIdBox.textContent = myDeviceId;
-        deviceIdBox.addEventListener("click", () => {
-            if (navigator.clipboard) {
-                navigator.clipboard.writeText(myDeviceId).then(() => {
-                    deviceIdBox.style.borderColor = "#00ff88";
-                    deviceIdBox.textContent = "✅ Copied!";
-                    setTimeout(() => {
-                        deviceIdBox.textContent = myDeviceId;
-                        deviceIdBox.style.borderColor = "rgba(255,165,0,0.4)";
-                    }, 1500);
+        const copyDeviceHandler = () => {
+            const doFeedback = () => {
+                deviceIdBox.style.borderColor = "#00ff88";
+                deviceIdBox.textContent = "✅ Copied! / تم النسخ";
+                setTimeout(() => {
+                    deviceIdBox.textContent = myDeviceId;
+                    deviceIdBox.style.borderColor = "rgba(255,165,0,0.4)";
+                }, 1600);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(myDeviceId).then(doFeedback).catch(() => {
+                    const ta = document.createElement("textarea");
+                    ta.value = myDeviceId;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand("copy");
+                    document.body.removeChild(ta);
+                    doFeedback();
                 });
+            } else {
+                const ta = document.createElement("textarea");
+                ta.value = myDeviceId;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand("copy");
+                document.body.removeChild(ta);
+                doFeedback();
             }
-        });
+        };
+        deviceIdBox.addEventListener("click", copyDeviceHandler);
+        deviceIdBox.addEventListener("touchend", copyDeviceHandler);
     }
 
     // Beautiful Splash Screen transition logic (fade out after 2.2s)
@@ -101,6 +121,7 @@ function loadSettings() {
     appState.engineThreads = parseInt(localStorage.getItem("engine_threads")) || 2;
     appState.showArrows = localStorage.getItem("show_arrows") !== "false";
     appState.showHud = localStorage.getItem("show_hud") !== "false";
+    appState.soundEnabled = localStorage.getItem("sound_enabled") !== "false";
     appState.stealthScreen = localStorage.getItem("stealth_screen") !== "false";
     appState.fullscreenMode = localStorage.getItem("fullscreen_mode") !== "false";
 }
@@ -114,6 +135,7 @@ function saveSettings() {
     localStorage.setItem("engine_threads", appState.engineThreads);
     localStorage.setItem("show_arrows", appState.showArrows);
     localStorage.setItem("show_hud", appState.showHud);
+    localStorage.setItem("sound_enabled", appState.soundEnabled);
     localStorage.setItem("stealth_screen", appState.stealthScreen);
     localStorage.setItem("fullscreen_mode", appState.fullscreenMode);
 }
@@ -129,143 +151,258 @@ function xorEncryptDecrypt(data, key) {
     return output.join("");
 }
 
-// Cryptographic Key Verification & Auto-Lock Helper
-function verifyCryptographicKey(key, secret) {
-    const parts = key.split('-');
-    if (parts.length !== 4) return null;
-    const [prefix, c1, c2, checksum] = parts;
-    if (!["MON", "TRM", "LFT", "TRL"].includes(prefix.toUpperCase())) return null;
-    
-    const comb = `${prefix.toUpperCase()}-${c1.toUpperCase()}-${c2.toUpperCase()}:${secret}`;
+function sanitizeKey(rawKey) {
+    if (!rawKey) return "";
+    let k = rawKey.trim().toUpperCase().replace(/\s+/g, '');
+    const parts = k.split('-');
+    if (parts.length === 4) {
+        const prefix = parts[0];
+        const cleanParts = [prefix];
+        for (let i = 1; i < 4; i++) {
+            // In the hex segments, automatically convert common human typos:
+            // 'O' (letter) -> '0' (digit zero)
+            // 'I' or 'L' (letters) -> '1' (digit one)
+            let seg = parts[i]
+                .replace(/O/g, '0')
+                .replace(/[IL]/g, '1');
+            cleanParts.push(seg);
+        }
+        return cleanParts.join('-');
+    }
+    return k;
+}
+
+function computeChecksum(prefix, expd, nonc, secret) {
+    const comb = `${prefix.toUpperCase()}-${expd.toUpperCase()}-${nonc.toUpperCase()}:${secret}`;
     let h = 0;
     for (let i = 0; i < comb.length; i++) {
         h = (Math.imul(h, 31) + comb.charCodeAt(i)) >>> 0;
     }
-    const expectedChecksum = ("0000" + (h & 0xFFFF).toString(16).toUpperCase()).slice(-4);
-    if (checksum.toUpperCase() !== expectedChecksum) return null;
+    return ("0000" + (h & 0xFFFF).toString(16).toUpperCase()).slice(-4);
+}
+
+// Parse expiration from 4-character hex epoch days
+function parseExpiryFromHex(expd) {
+    try {
+        const epochDays = parseInt(expd, 16);
+        if (isNaN(epochDays)) return null;
+        // End of the target day (23:59:59.999 UTC)
+        const expiryDate = new Date((epochDays + 1) * 86400000 - 1);
+        const y = expiryDate.getUTCFullYear();
+        const m = String(expiryDate.getUTCMonth() + 1).padStart(2, '0');
+        const d = String(expiryDate.getUTCDate()).padStart(2, '0');
+        return {
+            timestamp: expiryDate.getTime(),
+            dateStr: `${y}-${m}-${d}`
+        };
+    } catch(e) {
+        return null;
+    }
+}
+
+// Cryptographic Key Verification & Auto-Lock Helper (Supports hardware-bound keys and embedded expiry)
+function verifyCryptographicKey(rawKey, secret) {
+    const key = sanitizeKey(rawKey);
+    if (!key) return null;
+    const parts = key.split('-');
+    if (parts.length !== 4) return null;
+    const [prefix, expd, nonc, checksum] = parts.map(p => p.trim().toUpperCase());
+    if (!["MON", "TRM", "LFT", "TRL"].includes(prefix)) return null;
+    if (expd.length !== 4 || nonc.length !== 4 || checksum.length !== 4) return null;
+    
+    // Check 1: Key cryptographically bound to this phone's Device ID
+    const currentDeviceId = getDeviceId();
+    const cleanDevId = currentDeviceId.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const boundSecret = secret + "_" + cleanDevId;
+    
+    let isDeviceBound = false;
+    let expectedChecksum = computeChecksum(prefix, expd, nonc, boundSecret);
+    
+    if (checksum === expectedChecksum) {
+        isDeviceBound = true;
+    } else {
+        // Check 2: General promo / trial key
+        expectedChecksum = computeChecksum(prefix, expd, nonc, secret);
+        if (checksum !== expectedChecksum) return null; // Invalid signature
+    }
+
+    // Check 2: Embedded cryptographic expiration check
+    const expiryInfo = parseExpiryFromHex(expd);
+    if (!expiryInfo) return null;
+
+    const now = Date.now();
+    const isExpired = now > expiryInfo.timestamp;
 
     let tierStr = "Monthly";
-    let durationDays = 30;
-    if (prefix.toUpperCase() === "TRM") { tierStr = "3 Months"; durationDays = 90; }
-    else if (prefix.toUpperCase() === "LFT") { tierStr = "Lifetime"; durationDays = 36500; }
-    else if (prefix.toUpperCase() === "TRL") { tierStr = "Trial"; durationDays = 1; }
+    if (prefix === "TRM") { tierStr = "3 Months"; }
+    else if (prefix === "LFT") { tierStr = "Lifetime"; }
+    else if (prefix === "TRL") { tierStr = "Trial"; }
 
-    return { valid: true, tier: tierStr, durationDays: durationDays };
+    return { 
+        valid: !isExpired, 
+        isExpired: isExpired, 
+        tier: tierStr, 
+        expiryDate: expiryInfo.dateStr, 
+        isDeviceBound: isDeviceBound, 
+        key: key 
+    };
 }
 
 // Verify Subscription License Key
-async function verifyLicense(key, forceSave = true) {
-    key = key.trim().toUpperCase();
+async function verifyLicense(rawKey, forceSave = true) {
+    const key = sanitizeKey(rawKey);
     if (!key) {
         return { success: false, message: "Key cannot be empty (المفتاح مطلوب)" };
     }
 
-    // --- 1. Instant Cryptographic Verification & 1-Device Auto-Lock ---
-    const cryptoResult = verifyCryptographicKey(key, Config.SECRET_KEY);
-    if (cryptoResult && cryptoResult.valid) {
-        const currentDeviceId = getDeviceId();
-        const lockStorageKey = "device_lock_" + key;
-        const activatedStorageKey = "date_activated_" + key;
+    // --- 1. Primary: Remote Database Verification & Strict Device ID Lock ---
+    try {
+        const response = await fetch(Config.LICENSE_API_URL, { cache: "no-store" });
+        if (response.ok) {
+            const payload = await response.text();
+            const decodedBytes = atob(payload.trim());
+            let db = null;
+            for (const testSecret of [Config.SECRET_KEY, "STEALTH_CHESS_SECRET_KEY_2026"]) {
+                try {
+                    const decryptedJson = xorEncryptDecrypt(decodedBytes, testSecret);
+                    const candidate = JSON.parse(decryptedJson);
+                    if (candidate && candidate.keys) {
+                        db = candidate;
+                        break;
+                    }
+                } catch (err) {}
+            }
+            const keysDict = (db && db.keys) ? db.keys : {};
+            // If the key is specifically listed in the remote Gist database:
+            if (keysDict && (key in keysDict)) {
+                const keyInfo = keysDict[key];
+                const expiryStr = keyInfo.expiry || "2026-05-22";
+                const tierStr = keyInfo.tier || "Active";
+                const allowedMobileHwid = keyInfo.mobile_hwid || "";
 
-        let lockedDevice = localStorage.getItem(lockStorageKey);
-        if (!lockedDevice) {
-            // First run: Permanently lock key to this phone!
-            localStorage.setItem(lockStorageKey, currentDeviceId);
-            localStorage.setItem(activatedStorageKey, Date.now().toString());
-            lockedDevice = currentDeviceId;
-        } else if (lockedDevice.toUpperCase() !== currentDeviceId.toUpperCase()) {
+                // --- Strict Mobile Device ID Lock Check ---
+                const currentDeviceId = getDeviceId();
+                if (allowedMobileHwid && allowedMobileHwid.trim() !== "") {
+                    if (allowedMobileHwid.trim().toUpperCase() !== currentDeviceId.toUpperCase()) {
+                        return { 
+                            success: false, 
+                            message: "Device lock mismatch. Key is registered to another phone. (هذا المفتاح مقفل على جهاز آخر ولا يمكن استخدامه)" 
+                        };
+                    }
+                } else {
+                    const lockStorageKey = "device_lock_" + key;
+                    let lockedDevice = localStorage.getItem(lockStorageKey);
+                    if (!lockedDevice) {
+                        localStorage.setItem(lockStorageKey, currentDeviceId);
+                    } else if (lockedDevice.toUpperCase() !== currentDeviceId.toUpperCase()) {
+                        return { 
+                            success: false, 
+                            message: "Device lock mismatch. Key is registered to another phone. (هذا المفتاح مقفل على جهاز آخر)" 
+                        };
+                    }
+                }
+                
+                const expiryDate = new Date(expiryStr);
+                const currentDate = new Date();
+                expiryDate.setHours(23,59,59,999);
+
+                if (currentDate > expiryDate) {
+                    return { success: false, message: `Subscription expired on ${expiryStr} (انتهى الاشتراك)` };
+                }
+
+                appState.isValidLicense = true;
+                appState.tier = tierStr;
+                appState.expiryDate = expiryStr;
+                appState.licenseKey = key;
+                
+                if (forceSave) localStorage.setItem("license_key", key);
+                return { success: true };
+            }
+            // If key is not in remote Gist DB, fall through to cryptographic verification
+        }
+    } catch (e) {
+        console.warn("Remote license verification network issue, falling back to local lock check:", e);
+    }
+
+    // --- 2. Fallback: Local & Device-Locked Cryptographic Verification with Embedded Expiry ---
+    const cryptoResult = verifyCryptographicKey(key, Config.SECRET_KEY);
+    if (cryptoResult) {
+        if (cryptoResult.isExpired) {
             return { 
                 success: false, 
-                message: "Device lock mismatch. Key is registered to another phone. (هذا المفتاح مقفل على جهاز آخر ولا يمكن استخدامه)" 
+                message: `Subscription expired on ${cryptoResult.expiryDate} (انتهت صلاحية المفتاح)` 
             };
         }
 
-        // Check expiration from first activation
-        const activatedTimestamp = parseInt(localStorage.getItem(activatedStorageKey)) || Date.now();
-        const elapsedDays = (Date.now() - activatedTimestamp) / (1000 * 60 * 60 * 24);
-        if (elapsedDays > cryptoResult.durationDays) {
-            return { success: false, message: "Subscription expired (انتهت فترة الاشتراك)" };
+        // Anti-tamper clock check
+        const lastSeen = parseInt(localStorage.getItem("last_seen_epoch")) || 0;
+        if (Date.now() < lastSeen - (2 * 3600 * 1000)) {
+            return {
+                success: false,
+                message: "Device clock error detected. Please correct your system time. (تم اكتشاف خطأ في توقيت الجهاز)"
+            };
         }
+        localStorage.setItem("last_seen_epoch", Date.now().toString());
 
-        const expiryDateObj = new Date(activatedTimestamp + (cryptoResult.durationDays * 24 * 60 * 60 * 1000));
-        const expiryStr = cryptoResult.tier === "Lifetime" ? "2099-12-31" : expiryDateObj.toISOString().split('T')[0];
+        const currentDeviceId = getDeviceId();
+        const lockStorageKey = "device_lock_" + key;
+
+        // If key is not pre-bound, bind it to this device locally on first use
+        if (!cryptoResult.isDeviceBound) {
+            let lockedDevice = localStorage.getItem(lockStorageKey);
+            if (!lockedDevice) {
+                localStorage.setItem(lockStorageKey, currentDeviceId);
+            } else if (lockedDevice.toUpperCase() !== currentDeviceId.toUpperCase()) {
+                return { 
+                    success: false, 
+                    message: "Device lock mismatch. Key is registered to another phone. (هذا المفتاح مقفل على جهاز آخر ولا يمكن استخدامه)" 
+                };
+            }
+        }
 
         appState.isValidLicense = true;
         appState.tier = cryptoResult.tier;
-        appState.expiryDate = expiryStr;
+        appState.expiryDate = cryptoResult.expiryDate;
         appState.licenseKey = key;
 
         if (forceSave) localStorage.setItem("license_key", key);
         return { success: true };
     }
 
-    // --- 2. Fallback: Remote Database Verification ---
-    try {
-        const response = await fetch(Config.LICENSE_API_URL, { cache: "no-store" });
-        if (!response.ok) {
-            return { success: false, message: `Server error: ${response.status} (فشل الاتصال)` };
-        }
-        const payload = await response.text();
-        
-        // Base64 decode, then XOR decrypt
-        const decodedBytes = atob(payload.trim());
-        const decryptedJson = xorEncryptDecrypt(decodedBytes, Config.SECRET_KEY);
-        const db = JSON.parse(decryptedJson);
-        
-        const keysDict = db.keys || {};
-        if (!(key in keysDict)) {
-            return { success: false, message: "Invalid license key (مفتاح ترخيص غير صحيح)" };
-        }
+    return { success: false, message: "Invalid or deactivated license key (مفتاح ترخيص غير صحيح أو ملغي)" };
+}
 
-        const keyInfo = keysDict[key];
-        const expiryStr = keyInfo.expiry || "2026-05-22";
-        const tierStr = keyInfo.tier || "Active";
-        const allowedMobileHwid = keyInfo.mobile_hwid || "";
-
-        // --- Mobile Device ID Lock Check ---
-        if (allowedMobileHwid && allowedMobileHwid.trim() !== "") {
-            const currentDeviceId = getDeviceId();
-            if (allowedMobileHwid.trim().toUpperCase() !== currentDeviceId.toUpperCase()) {
-                return { success: false, message: "Device lock mismatch. Key is registered to another phone. (المفتاح مسجل على جهاز آخر)" };
-            }
-        }
-        
-        const expiryDate = new Date(expiryStr);
-        const currentDate = new Date();
-        
-        // Strip hours for pure date comparison
-        expiryDate.setHours(0,0,0,0);
-        currentDate.setHours(0,0,0,0);
-
-        if (currentDate > expiryDate) {
-            return { success: false, message: `Subscription expired on ${expiryStr} (انتهى الاشتراك)` };
-        }
-
-        appState.isValidLicense = true;
-        appState.tier = tierStr;
-        appState.expiryDate = expiryStr;
-        appState.licenseKey = key;
-        
-        if (forceSave) localStorage.setItem("license_key", key);
-        return { success: true };
-
-    } catch (e) {
-        console.error("License validation error:", e);
-        return { success: false, message: "Verification failed (فشل التحقق من الشبكة)" };
+// Lock dashboard and return to activation screen
+function lockDashboard() {
+    const dashView = document.getElementById("dashboard-view");
+    const actView = document.getElementById("activation-view");
+    if (dashView) dashView.classList.add("hidden");
+    if (actView) actView.classList.remove("hidden");
+    if (appState.isBotRunning) {
+        stopBot();
     }
 }
 
 // Auto check stored key on startup
 async function checkStoredLicense() {
     if (appState.licenseKey) {
-        showStatus("Verifying saved subscription... (جاري التحقق)", "info");
+        showStatus("Verifying subscription... (جاري التحقق من الترخيص)", "info");
         const res = await verifyLicense(appState.licenseKey, false);
         if (res.success) {
             unlockDashboard();
         } else {
-            showStatus(res.message, "error");
+            showStatus(res.message || "License deactivated. Please enter a valid key.", "error");
             localStorage.removeItem("license_key");
+            // Clear all old activation locks
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+                const k = localStorage.key(i);
+                if (k && (k.startsWith("device_lock_") || k.startsWith("date_activated_"))) {
+                    localStorage.removeItem(k);
+                }
+            }
             appState.licenseKey = "";
+            appState.isValidLicense = false;
+            lockDashboard();
         }
     }
 }
@@ -281,20 +418,29 @@ function initUI() {
     }
 
     activateBtn.addEventListener("click", async () => {
+        AppSoundFx.playClick();
         const key = keyInput.value.trim();
         activateBtn.disabled = true;
+        activateBtn.style.opacity = '0.6';
         showStatus("Checking license database... (جاري التحقق)", "info");
         
         const res = await verifyLicense(key);
         if (res.success) {
-            showStatus("License Validated! Unlocking dashboard...", "success");
+            AppSoundFx.playSuccess();
+            showStatus("✅ License Validated! Unlocking... (تم التفعيل بنجاح!)", "success");
+            // Haptic vibration feedback (if available)
+            if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
             setTimeout(() => {
                 unlockDashboard();
                 activateBtn.disabled = false;
-            }, 1000);
+                activateBtn.style.opacity = '1';
+            }, 1200);
         } else {
+            AppSoundFx.playError();
             showStatus(res.message, "error");
+            if (navigator.vibrate) navigator.vibrate(100);
             activateBtn.disabled = false;
+            activateBtn.style.opacity = '1';
         }
     });
 
@@ -362,6 +508,15 @@ function initUI() {
         saveSettings();
     });
 
+    const chkSound = document.getElementById("chk-sound");
+    if (chkSound) {
+        chkSound.checked = appState.soundEnabled;
+        chkSound.addEventListener("change", (e) => {
+            appState.soundEnabled = e.target.checked;
+            saveSettings();
+        });
+    }
+
     const chkFullscreen = document.getElementById("chk-fullscreen");
     chkFullscreen.checked = appState.fullscreenMode;
     chkFullscreen.addEventListener("change", (e) => {
@@ -404,6 +559,11 @@ function initUI() {
     const startBtn = document.getElementById("start-bot-btn");
     startBtn.addEventListener("click", () => {
         if (!appState.isBotRunning) {
+            AppSoundFx.playStart();
+            if (navigator.vibrate) navigator.vibrate([30, 20, 30]);
+            startBtn.classList.add('running');
+            startBtn.querySelector('span').textContent = '🟢 Assistant Running...';
+            startBtn.querySelector('.btn-ar').textContent = 'المساعد يعمل الآن...';
             startBot();
         }
     });
@@ -421,13 +581,94 @@ function updateEloDisplay() {
     document.getElementById("val-elo").textContent = `~${elo} ELO`;
 }
 
+// Web Audio API sound effects for the main app UI
+const AppSoundFx = {
+    ctx: null,
+    init() {
+        try {
+            if (!this.ctx) {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                if (AC) this.ctx = new AC();
+            }
+            if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+        } catch(e) {}
+    },
+    playSuccess() {
+        try {
+            this.init(); if (!this.ctx) return;
+            const now = this.ctx.currentTime;
+            [523.25, 659.25, 783.99].forEach((freq, i) => {
+                const t = now + i * 0.08;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.type = 'sine'; osc.frequency.setValueAtTime(freq, t);
+                gain.gain.setValueAtTime(0.2, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+                osc.start(t); osc.stop(t + 0.2);
+            });
+        } catch(e) {}
+    },
+    playError() {
+        try {
+            this.init(); if (!this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.connect(gain); gain.connect(this.ctx.destination);
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(220, now);
+            osc.frequency.exponentialRampToValueAtTime(110, now + 0.15);
+            gain.gain.setValueAtTime(0.15, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+            osc.start(now); osc.stop(now + 0.15);
+        } catch(e) {}
+    },
+    playClick() {
+        try {
+            this.init(); if (!this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.connect(gain); gain.connect(this.ctx.destination);
+            osc.type = 'triangle'; osc.frequency.setValueAtTime(600, now);
+            gain.gain.setValueAtTime(0.1, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+            osc.start(now); osc.stop(now + 0.04);
+        } catch(e) {}
+    },
+    playStart() {
+        try {
+            this.init(); if (!this.ctx) return;
+            const now = this.ctx.currentTime;
+            [392, 523.25, 659.25, 783.99].forEach((freq, i) => {
+                const t = now + i * 0.06;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.type = 'sine'; osc.frequency.setValueAtTime(freq, t);
+                gain.gain.setValueAtTime(0.18, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+                osc.start(t); osc.stop(t + 0.25);
+            });
+        } catch(e) {}
+    }
+};
+
 function showStatus(msg, type) {
     const el = document.getElementById("activation-status");
     el.textContent = msg;
     el.className = "status-msg";
-    if (type === "success") el.style.color = "var(--success-green)";
-    else if (type === "info") el.style.color = "var(--text-muted)";
-    else el.style.color = "var(--danger-red)";
+    if (type === "success") {
+        el.style.color = "var(--success-green)";
+        const formCard = el.closest('.form-card');
+        if (formCard) { formCard.classList.remove('success-bounce'); void formCard.offsetWidth; formCard.classList.add('success-bounce'); }
+    } else if (type === "info") {
+        el.style.color = "var(--text-muted)";
+    } else {
+        el.style.color = "var(--danger-red)";
+        const formCard = el.closest('.form-card');
+        if (formCard) { formCard.classList.remove('shake-error'); void formCard.offsetWidth; formCard.classList.add('shake-error'); }
+    }
 }
 
 function addLiveLog(msg, type = "info") {
@@ -983,7 +1224,7 @@ function sendMovesToWebView(moves, isWhiteBottom, timeLeft) {
     const code = `
         (function() {
             if (typeof window.drawStealthOverlay === 'function') {
-                window.drawStealthOverlay(${serializedMoves}, ${isWhiteBottom}, ${timeLeft}, ${appState.showArrows}, ${appState.showHud}, ${appState.stealthScreen});
+                window.drawStealthOverlay(${serializedMoves}, ${isWhiteBottom}, ${timeLeft}, ${appState.showArrows}, ${appState.showHud}, ${appState.stealthScreen}, ${appState.soundEnabled});
                 return "DRAW_OK";
             }
             return "NOT_READY";

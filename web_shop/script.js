@@ -84,11 +84,11 @@ const i18n = {
         dl_section_title: "حمّل التطبيق لجهازك وابدأ التثبيت مجاناً",
         dl_section_subtitle: "الملفات متاحة للتحميل المباشر الآن. عند الضغط سيبدأ التنزيل فوراً، وتستطيع استلام مفتاح التفعيل عبر تيليجرام من المالك.",
         dl_ipa_badge: "للآيفون والآيباد (iOS)",
-        dl_ipa_btn: "تحميل ملف IPA (10.8 MB) 🍏",
+        dl_ipa_btn: "تحميل ملف IPA (14.2 MB) 🍏",
         dl_android_badge: "للأندرويد (Android APK)",
-        dl_android_btn: "تحميل ملف APK (11.3 MB) 🤖",
+        dl_android_btn: "تحميل ملف APK (16.9 MB) 🤖",
         dl_pc_badge: "للكمبيوتر (Windows PC)",
-        dl_pc_btn: "تحميل حزمة PC ZIP (107 MB) 💻",
+        dl_pc_btn: "تحميل حزمة PC ZIP (98.4 MB) 💻",
         dl_ios_perk1: "بدون جيلبريك (يدعم iOS 13 وحتى أحدث إصدارات iOS)",
         dl_ios_perk2: "تثبيت سهل وسريع عبر Scarlet أو ESign أو Sideloadly",
         dl_ios_perk3: "متصفح مدمج يحقن المحرك مباشرة داخل Chess.com",
@@ -209,11 +209,11 @@ const i18n = {
         dl_section_title: "Download & Install the App Free on Any Device",
         dl_section_subtitle: "Files are available for immediate download. When you click, download starts instantly, and you can obtain your license key on Telegram from the owner.",
         dl_ipa_badge: "iPhone & iPad (iOS)",
-        dl_ipa_btn: "Download IPA Build (10.8 MB) 🍏",
+        dl_ipa_btn: "Download IPA Build (14.2 MB) 🍏",
         dl_android_badge: "Android Devices (APK)",
-        dl_android_btn: "Download APK File (11.3 MB) 🤖",
+        dl_android_btn: "Download APK File (16.9 MB) 🤖",
         dl_pc_badge: "Windows PC (10/11)",
-        dl_pc_btn: "Download PC ZIP (107 MB) 💻",
+        dl_pc_btn: "Download PC ZIP (98.4 MB) 💻",
         dl_ios_perk1: "No Jailbreak Required (Supports iOS 13 through iOS 18+)",
         dl_ios_perk2: "Effortless installation via Scarlet, ESign, or Sideloadly",
         dl_ios_perk3: "Sandboxed browser injects engine directly into Chess.com",
@@ -278,16 +278,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-// Setup Download Links (Local vs GitHub Releases CDN Fallback)
+// Setup Direct Download Links from Local Netlify Hosted Assets
 function setupDownloadLinks() {
-    const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-    const GITHUB_RELEASE_BASE = "https://github.com/computerengineer1/Stealth-chess/releases/download/v2.0.0";
-
-    const ipaUrl = isLocalhost ? "downloads/StealthChessHelper.ipa" : `${GITHUB_RELEASE_BASE}/StealthChessHelper.ipa`;
-    const pcUrl = isLocalhost ? "downloads/StealthChess_PC.zip" : `${GITHUB_RELEASE_BASE}/StealthChess_PC.zip`;
+    const ipaUrl = "downloads/StealthChessHelper.ipa";
+    const apkUrl = "downloads/StealthChessHelper.apk";
+    const pcUrl = "downloads/StealthChess_PC.zip";
 
     document.querySelectorAll(".dl-link-ipa").forEach(el => {
         el.href = ipaUrl;
+    });
+
+    document.querySelectorAll(".dl-link-apk").forEach(el => {
+        el.href = apkUrl;
     });
 
     document.querySelectorAll(".dl-link-pc").forEach(el => {

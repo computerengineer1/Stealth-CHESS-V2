@@ -53,4 +53,8 @@ class Config:
     # When True, the PyQt overlay is hidden from screen capture/recording/streaming (Default: True)
     STEALTH_DISPLAY = True
 
+    # --- Sound Effects ---
+    # When True, subtle tactical sound effects are played for moves, brilliant moves, and mate
+    SOUND_ENABLED = True
+
 

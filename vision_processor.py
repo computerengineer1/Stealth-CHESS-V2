@@ -11,8 +11,14 @@ class VisionProcessor:
         self.latest_matrix = [['' for _ in range(8)] for _ in range(8)]
         self.is_white_bottom = True
         self.latest_time_left = 300.0
+        self.turn = "w"
+        self.is_my_turn = True
+        self.latest_best_move = ""
         self.server_thread = threading.Thread(target=self._run_server, daemon=True)
         self.server_thread.start()
+
+    def set_best_move(self, move: str):
+        self.latest_best_move = move or ""
 
     def _run_server(self):
         parent = self
@@ -38,6 +44,19 @@ class VisionProcessor:
                         self.wfile.write(b'{"status":"authenticated"}')
                     else:
                         self.wfile.write(b'{"status":"unauthorized"}')
+                    return
+                elif self.path == '/bestmove':
+                    self.send_response(200)
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.send_header('Access-Control-Allow-Private-Network', 'true')
+                    self.send_header('Content-Type', 'application/json')
+                    self.end_headers()
+                    resp = json.dumps({
+                        "status": "ok",
+                        "best_move": parent.latest_best_move,
+                        "is_my_turn": parent.is_my_turn
+                    })
+                    self.wfile.write(resp.encode('utf-8'))
                     return
                 
                 self.send_response(404)
@@ -65,6 +84,10 @@ class VisionProcessor:
                         parent.is_white_bottom = data['is_white_bottom']
                     if 'time_left' in data:
                         parent.latest_time_left = float(data['time_left'])
+                    if 'turn' in data:
+                        parent.turn = data['turn']
+                    if 'is_my_turn' in data:
+                        parent.is_my_turn = bool(data['is_my_turn'])
                 except Exception as e:
                     print(f"Error parsing DOM data: {e}")
                 
@@ -73,19 +96,32 @@ class VisionProcessor:
                 self.send_header('Access-Control-Allow-Private-Network', 'true')
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
-                self.wfile.write(b'{"status":"ok"}')
+                resp = json.dumps({
+                    "status": "ok",
+                    "best_move": parent.latest_best_move,
+                    "is_my_turn": parent.is_my_turn
+                })
+                self.wfile.write(resp.encode('utf-8'))
                 
             def log_message(self, format, *args):
                 pass # Suppress HTTP logs to keep terminal clean
 
-        print("Started Stealth DOM Server on http://127.0.0.1:5005")
-        server = HTTPServer(('127.0.0.1', 5005), RequestHandler)
-        server.serve_forever()
+        class ReusableHTTPServer(HTTPServer):
+            allow_reuse_address = True
+
+        try:
+            print("Started Stealth DOM Server on http://127.0.0.1:5005")
+            server = ReusableHTTPServer(('127.0.0.1', 5005), RequestHandler)
+            server.serve_forever()
+        except Exception as e:
+            print(f"Warning: Local Stealth DOM Server error: {e}")
 
     def get_board_data(self) -> dict:
         return {
             "matrix": self.latest_matrix, 
             "is_white_bottom": self.is_white_bottom,
-            "time_left": self.latest_time_left
+            "time_left": self.latest_time_left,
+            "turn": self.turn,
+            "is_my_turn": self.is_my_turn
         }
 

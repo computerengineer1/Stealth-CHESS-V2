@@ -49,56 +49,97 @@
     let lastSentTimeLeft = null;
     
     // ====================================================================
+    //  Turn & Perspective Detector for Chess.com
+    // ====================================================================
+    function detectTurnChessCom(boardEl) {
+        const isFlipped = boardEl.classList.contains('flipped') || !!document.querySelector('.board.flipped');
+        const isWhiteBottom = !isFlipped;
+        const myColor = isWhiteBottom ? 'w' : 'b';
+
+        let detectedTurn = null;
+        const highlights = boardEl.querySelectorAll('.highlight');
+        if (highlights && highlights.length >= 2) {
+            for (let i = 0; i < highlights.length; i++) {
+                const hl = highlights[i];
+                let sqCoord = "";
+                hl.classList.forEach(c => {
+                    if (c.startsWith("square-")) sqCoord = c;
+                });
+                if (sqCoord) {
+                    const piece = boardEl.querySelector(`.piece.${sqCoord}`);
+                    if (piece) {
+                        piece.classList.forEach(c => {
+                            if (c.length === 2 && ['p', 'n', 'b', 'r', 'q', 'k'].includes(c[1].toLowerCase())) {
+                                if (c[0] === 'w') detectedTurn = 'b';
+                                else if (c[0] === 'b') detectedTurn = 'w';
+                            }
+                        });
+                    }
+                }
+                if (detectedTurn) break;
+            }
+        }
+
+        if (!detectedTurn) {
+            const moveNodes = document.querySelectorAll('wc-vertical-move-list .node, .vertical-move-list-component .node, .move-list-row .node');
+            if (moveNodes && moveNodes.length > 0) {
+                const lastNode = moveNodes[moveNodes.length - 1];
+                if (lastNode.classList.contains('white') || lastNode.closest('.white')) detectedTurn = 'b';
+                else if (lastNode.classList.contains('black') || lastNode.closest('.black')) detectedTurn = 'w';
+            }
+        }
+
+        if (!detectedTurn) detectedTurn = 'w';
+
+        const isMyTurn = (detectedTurn === myColor);
+        return { isWhiteBottom, myColor, turn: detectedTurn, isMyTurn };
+    }
+
+    // ====================================================================
     //  Chess.com Board Reader
     // ====================================================================
     function readBoardChessCom() {
-        let boardArray = Array(8).fill("").map(() => Array(8).fill(""));
-        let pieces = document.querySelectorAll('.piece');
-        if (!pieces.length) {
-            let bulletSpeedDelay = Math.floor(Math.random() * 20) + 70;
-            nativeSetTimeout(readBoardChessCom, bulletSpeedDelay);
+        const boardEl = document.querySelector('wc-chess-board') || document.querySelector('.board');
+        if (!boardEl) {
+            nativeSetTimeout(readBoardChessCom, 150);
             return;
         }
-        
-        let is_white_bottom = true;
-        
-        // Cache board orientation and only check every 30 iterations (~2.5s) to avoid getBoundingClientRect layout reflows
-        if (cached_is_white_bottom !== null && framesSinceOrientationCheck < 30) {
-            is_white_bottom = cached_is_white_bottom;
-            framesSinceOrientationCheck++;
-        } else {
-            framesSinceOrientationCheck = 0;
-            let anchorPiece = Array.from(pieces).find(p => {
-                let sqClass = Array.from(p.classList).find(c => c.startsWith('square-'));
-                if (sqClass) {
-                    let rank = parseInt(sqClass[8]);
-                    return rank <= 2 || rank >= 7; 
-                }
-                return false;
-            });
- 
-            if (anchorPiece) {
-                let sqClass = Array.from(anchorPiece.classList).find(c => c.startsWith('square-'));
-                let rank = parseInt(sqClass[8]);
-                let rect = anchorPiece.getBoundingClientRect();
-                let board = anchorPiece.parentElement.getBoundingClientRect();
-                let relativeY = (rect.top - board.top) / board.height;
-                let expectedY_WhiteBottom = (8 - rank) / 8;
-                let expectedY_BlackBottom = (rank - 1) / 8;
-                is_white_bottom = Math.abs(relativeY - expectedY_WhiteBottom) < Math.abs(relativeY - expectedY_BlackBottom);
-                cached_is_white_bottom = is_white_bottom;
-            } else if (cached_is_white_bottom !== null) {
-                is_white_bottom = cached_is_white_bottom;
-            }
+
+        const pieces = boardEl.querySelectorAll('.piece');
+        if (!pieces.length) {
+            nativeSetTimeout(readBoardChessCom, 100);
+            return;
         }
- 
+
+        const turnInfo = detectTurnChessCom(boardEl);
+        const is_white_bottom = turnInfo.isWhiteBottom;
+
+        let boardArray = Array(8).fill("").map(() => Array(8).fill(""));
+
         pieces.forEach(p => {
-            let classes = p.className.split(' ');
+            let classes = Array.from(p.classList || p.className.split(' '));
             let colorType = classes.find(c => c.length === 2 && (c[0]==='w' || c[0]==='b') && ['p', 'n', 'b', 'r', 'q', 'k'].includes(c[1].toLowerCase()));
             let sqClass = classes.find(c => c.startsWith('square-'));
-            if (colorType && sqClass) {
-                let file = parseInt(sqClass[7]);
-                let rank = parseInt(sqClass[8]);
+            let file = 0, rank = 0;
+            
+            if (sqClass) {
+                let coordPart = sqClass.replace('square-', '');
+                if (coordPart.length === 2) {
+                    file = parseInt(coordPart[0], 10);
+                    rank = parseInt(coordPart[1], 10);
+                } else if (coordPart.length === 4) {
+                    file = parseInt(coordPart.substring(0, 2), 10);
+                    rank = parseInt(coordPart.substring(2, 4), 10);
+                }
+            } else {
+                let dataSq = p.getAttribute('data-square');
+                if (dataSq && /^[a-h][1-8]$/.test(dataSq)) {
+                    file = dataSq.charCodeAt(0) - 96;
+                    rank = parseInt(dataSq[1], 10);
+                }
+            }
+
+            if (colorType && file >= 1 && file <= 8 && rank >= 1 && rank <= 8) {
                 let r = 8 - rank;
                 let c = file - 1;
                 let char = colorType[1];
@@ -107,15 +148,8 @@
             }
         });
         
-        // Parse remaining time from bottom (player's) clock
         let timeLeft = 300; 
-        let clockEl = document.querySelector('.clock-bottom .clock-time-monospace, .clock-bottom span, .clock-bottom');
-        if (!clockEl) {
-            let clocks = document.querySelectorAll('.clock-component');
-            if (clocks.length > 0) {
-                clockEl = clocks[clocks.length - 1];
-            }
-        }
+        let clockEl = document.querySelector('.player-component.bottom .clock-component, #player-bottom .clock-time-component, .clock-bottom');
         if (clockEl) {
             let timeText = clockEl.textContent.trim();
             if (timeText) {
@@ -136,11 +170,9 @@
             }
         }
  
-        sendBoardState(boardArray, is_white_bottom, timeLeft);
+        sendBoardState(boardArray, is_white_bottom, timeLeft, turnInfo.turn, turnInfo.isMyTurn, boardEl);
         
-        // Loop recursively using native setTimeout
-        let bulletSpeedDelay = Math.floor(Math.random() * 20) + 70;
-        nativeSetTimeout(readBoardChessCom, bulletSpeedDelay);
+        nativeSetTimeout(readBoardChessCom, 100);
     }
 
     // ====================================================================
@@ -267,29 +299,120 @@
             }
         }
 
-        sendBoardState(boardArray, is_white_bottom, timeLeft);
+        sendBoardState(boardArray, is_white_bottom, timeLeft, "w", true, cgBoard);
 
         let bulletSpeedDelay = Math.floor(Math.random() * 20) + 70;
         nativeSetTimeout(readBoardLichess, bulletSpeedDelay);
     }
 
     // ====================================================================
-    //  Shared: Throttled POST to Python backend
+    //  Tactical Arrow Overlay on Board
     // ====================================================================
-    function sendBoardState(boardArray, is_white_bottom, timeLeft) {
-        let matrixStr = JSON.stringify(boardArray);
-        let timeDifference = lastSentTimeLeft !== null ? Math.abs(timeLeft - lastSentTimeLeft) : 999;
+    let lastRenderedMove = "";
+    let currentBestMove = "";
+
+    function removeOnBoardArrow() {
+        const existing = document.getElementById("csp5-arrow-layer");
+        if (existing) existing.remove();
+        lastRenderedMove = "";
+    }
+
+    function drawOnBoardArrow(boardEl, uciMove, isWhiteBottom) {
+        if (!boardEl || !uciMove || uciMove.length < 4) {
+            removeOnBoardArrow();
+            return;
+        }
+
+        if (uciMove === lastRenderedMove && document.getElementById("csp5-arrow-layer")) {
+            return;
+        }
+
+        const fromCol = uciMove.charCodeAt(0) - 97;
+        const fromRank = parseInt(uciMove[1], 10);
+        const toCol = uciMove.charCodeAt(2) - 97;
+        const toRank = parseInt(uciMove[3], 10);
+
+        const col1 = isWhiteBottom ? fromCol : (7 - fromCol);
+        const row1 = isWhiteBottom ? (8 - fromRank) : (fromRank - 1);
+        const col2 = isWhiteBottom ? toCol : (7 - toCol);
+        const row2 = isWhiteBottom ? (8 - toRank) : (toRank - 1);
+
+        const x1 = (col1 + 0.5) * 12.5;
+        const y1 = (row1 + 0.5) * 12.5;
+        const x2 = (col2 + 0.5) * 12.5;
+        const y2 = (row2 + 0.5) * 12.5;
+
+        const targetX = col2 * 12.5;
+        const targetY = row2 * 12.5;
+
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const angle = Math.atan2(dy, dx);
         
-        let shouldSend = (matrixStr !== lastSentMatrixStr) || 
-                         (is_white_bottom !== lastSentIsWhiteBottom) || 
-                         (timeDifference >= 1.0);
-                          
+        const headLen = 3.6;
+        const headWidth = 2.4;
+        const shaftEndX = x2 - (headLen * 0.7) * Math.cos(angle);
+        const shaftEndY = y2 - (headLen * 0.7) * Math.sin(angle);
+
+        const leftX = x2 - headLen * Math.cos(angle) + headWidth * Math.sin(angle);
+        const leftY = y2 - headLen * Math.sin(angle) - headWidth * Math.cos(angle);
+        const rightX = x2 - headLen * Math.cos(angle) - headWidth * Math.sin(angle);
+        const rightY = y2 - headLen * Math.sin(angle) + headWidth * Math.cos(angle);
+
+        if (window.getComputedStyle(boardEl).position === "static") {
+            boardEl.style.position = "relative";
+        }
+
+        let svg = document.getElementById("csp5-arrow-layer");
+        if (!svg) {
+            svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            svg.id = "csp5-arrow-layer";
+            Object.assign(svg.style, {
+                position: "absolute",
+                top: "0",
+                left: "0",
+                width: "100%",
+                height: "100%",
+                pointerEvents: "none",
+                zIndex: "9999",
+                overflow: "visible"
+            });
+            svg.setAttribute("viewBox", "0 0 100 100");
+            boardEl.appendChild(svg);
+        }
+
+        svg.innerHTML = `
+            <defs>
+                <filter id="csp5-glow" x="-30%" y="-30%" width="160%" height="160%">
+                    <feDropShadow dx="0" dy="0" stdDeviation="0.8" flood-color="#00f0ff" flood-opacity="0.95" />
+                </filter>
+            </defs>
+            <rect x="${targetX}" y="${targetY}" width="12.5" height="12.5"
+                  fill="#00f0ff" fill-opacity="0.28" rx="1.5" />
+            <circle cx="${x1}" cy="${y1}" r="1.8" fill="#00f0ff" opacity="0.9" filter="url(#csp5-glow)" />
+            <line x1="${x1}" y1="${y1}" x2="${shaftEndX}" y2="${shaftEndY}"
+                  stroke="#00f0ff" stroke-width="1.8" stroke-linecap="round"
+                  opacity="0.92" filter="url(#csp5-glow)" />
+            <polygon points="${x2},${y2} ${leftX},${leftY} ${rightX},${rightY}"
+                     fill="#00f0ff" opacity="0.95" filter="url(#csp5-glow)" />
+        `;
+
+        lastRenderedMove = uciMove;
+    }
+
+    // ====================================================================
+    //  Shared: Throttled POST to Python backend + Arrow Sync
+    // ====================================================================
+    function sendBoardState(boardArray, is_white_bottom, timeLeft, turn = "w", isMyTurn = true, boardEl = null) {
+        let matrixStr = JSON.stringify(boardArray) + `:${turn}:${isMyTurn}`;
+        
+        let shouldSend = (matrixStr !== lastSentMatrixStr);
+                           
         if (shouldSend) {
             lastSentMatrixStr = matrixStr;
-            lastSentIsWhiteBottom = is_white_bottom;
-            lastSentTimeLeft = timeLeft;
-            
-            // Use native fetch to bypass page hooks
+            currentBestMove = "";
+            removeOnBoardArrow();
+
             nativeFetch("http://127.0.0.1:5005", {
                 method: "POST",
                 mode: "cors",
@@ -300,9 +423,40 @@
                 body: JSON.stringify({ 
                     matrix: boardArray, 
                     is_white_bottom: is_white_bottom,
-                    time_left: timeLeft 
+                    turn: turn,
+                    is_my_turn: isMyTurn,
+                    time_left: timeLeft,
+                    platform: "Chess.com"
                 })
-            }).catch(e => {});
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data && data.is_my_turn && data.best_move && boardEl) {
+                    currentBestMove = data.best_move;
+                    drawOnBoardArrow(boardEl, data.best_move, is_white_bottom);
+                }
+            })
+            .catch(e => {});
+        }
+
+        if (isMyTurn && boardEl) {
+            if (!currentBestMove) {
+                nativeFetch("http://127.0.0.1:5005/bestmove", {
+                    method: "GET",
+                    mode: "cors",
+                    credentials: "omit"
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data && data.is_my_turn && data.best_move) {
+                        currentBestMove = data.best_move;
+                        drawOnBoardArrow(boardEl, data.best_move, is_white_bottom);
+                    }
+                })
+                .catch(e => {});
+            }
+        } else {
+            removeOnBoardArrow();
         }
     }
 

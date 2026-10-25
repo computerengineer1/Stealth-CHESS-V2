@@ -6,9 +6,14 @@ window.injectedStealthFunction = function() {
     window.__stealth_assistant_running = true;
     console.log("Stealth Injected Script Loaded successfully!");
 
+    // State & Configuration
+    window.__stealth_ui_hidden = false;
+    window.__stealth_hud_minimized = false;
+    window.__stealth_sound_enabled = true;
+    window.__stealth_last_known_score = "0.00";
+    window.__stealth_last_best_move = "";
+
     // Use native setTimeout with iOS WKWebView fallback
-    // iOS WKWebView blocks cross-origin iframe contentWindow access,
-    // so we gracefully fall back to the global setTimeout if needed
     let nativeSetTimeout = window.setTimeout.bind(window);
     try {
         const frame = document.createElement('iframe');
@@ -19,9 +24,107 @@ window.injectedStealthFunction = function() {
             nativeSetTimeout = frame.contentWindow.setTimeout.bind(frame.contentWindow);
         }
     } catch (e) {
-        // iOS WKWebView security restriction — use global setTimeout
-        console.log("Using fallback setTimeout for iOS compatibility.");
+        console.log("Using fallback setTimeout.");
     }
+
+    // ====================================================================
+    //  Pure Web Audio API Sound Synthesizer (Zero Network, 100% Offline)
+    // ====================================================================
+    const SoundFx = {
+        ctx: null,
+        init() {
+            try {
+                if (!this.ctx) {
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContextClass) {
+                        this.ctx = new AudioContextClass();
+                    }
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume().catch(() => {});
+                }
+            } catch (e) {}
+        },
+        playMove() {
+            if (!window.__stealth_sound_enabled) return;
+            try {
+                this.init();
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.type = "triangle";
+                osc.frequency.setValueAtTime(480, now);
+                osc.frequency.exponentialRampToValueAtTime(240, now + 0.07);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+                osc.start(now);
+                osc.stop(now + 0.07);
+            } catch (e) {}
+        },
+        playBrilliant() {
+            if (!window.__stealth_sound_enabled) return;
+            try {
+                this.init();
+                if (!this.ctx) return;
+                const chords = [587.33, 880, 1174.66];
+                chords.forEach((freq, idx) => {
+                    const t = this.ctx.currentTime + idx * 0.055;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.type = "sine";
+                    osc.frequency.setValueAtTime(freq, t);
+                    gain.gain.setValueAtTime(0.25, t);
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+                    osc.start(t);
+                    osc.stop(t + 0.25);
+                });
+            } catch (e) {}
+        },
+        playMate() {
+            if (!window.__stealth_sound_enabled) return;
+            try {
+                this.init();
+                if (!this.ctx) return;
+                const freqs = [440, 554.37, 659.25, 880];
+                freqs.forEach((freq) => {
+                    const t = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.type = "sine";
+                    osc.frequency.setValueAtTime(freq, t);
+                    gain.gain.setValueAtTime(0.18, t);
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+                    osc.start(t);
+                    osc.stop(t + 0.55);
+                });
+            } catch (e) {}
+        },
+        playLowTime() {
+            if (!window.__stealth_sound_enabled) return;
+            try {
+                this.init();
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.type = "sine";
+                osc.frequency.setValueAtTime(880, now);
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                osc.start(now);
+                osc.stop(now + 0.05);
+            } catch (e) {}
+        }
+    };
 
     // Caching state to throttle WebView-to-App messages
     let cachedIsWhiteBottom = null;
@@ -29,6 +132,7 @@ window.injectedStealthFunction = function() {
     let lastSentMatrixStr = "";
     let lastSentIsWhiteBottom = null;
     let lastSentTimeLeft = null;
+    let lastLowTimeBeep = 0;
 
     // Detect which chess platform the WebView is on
     const isLichess = window.location.hostname.includes("lichess.org");
@@ -44,17 +148,13 @@ window.injectedStealthFunction = function() {
             try {
                 window.cordova_iab.postMessage(jsonStr);
                 return true;
-            } catch (e) {
-                console.error("Error posting to window.cordova_iab:", e);
-            }
+            } catch (e) {}
         }
         if (typeof cordova_iab !== 'undefined' && typeof cordova_iab.postMessage === 'function') {
             try {
                 cordova_iab.postMessage(jsonStr);
                 return true;
-            } catch (e) {
-                console.error("Error posting to cordova_iab:", e);
-            }
+            } catch (e) {}
         }
         
         // 2. iOS WKWebView InAppBrowser
@@ -62,9 +162,7 @@ window.injectedStealthFunction = function() {
             try {
                 window.webkit.messageHandlers.cordova_iab.postMessage(jsonStr);
                 return true;
-            } catch (e) {
-                console.error("Error posting to window.webkit:", e);
-            }
+            } catch (e) {}
         }
         
         // 3. Fallback / desktop iframe mock
@@ -78,6 +176,139 @@ window.injectedStealthFunction = function() {
     }
 
     // ====================================================================
+    //  Toast Notification Display Helper
+    // ====================================================================
+    function showStealthToast(message) {
+        let toast = document.getElementById("stealth-toast");
+        if (!toast) {
+            toast = document.createElement("div");
+            toast.id = "stealth-toast";
+            Object.assign(toast.style, {
+                position: "fixed",
+                top: "20px",
+                left: "50%",
+                transform: "translateX(-50%)",
+                backgroundColor: "rgba(15, 15, 20, 0.95)",
+                border: "1px solid rgba(255, 51, 51, 0.6)",
+                borderRadius: "20px",
+                padding: "8px 18px",
+                color: "#ffffff",
+                fontFamily: "'Segoe UI', Arial, sans-serif",
+                fontSize: "12px",
+                fontWeight: "600",
+                zIndex: "1000000",
+                boxShadow: "0 6px 20px rgba(0,0,0,0.6)",
+                pointerEvents: "none",
+                transition: "opacity 0.3s ease, transform 0.3s ease",
+                opacity: "0"
+            });
+            document.body.appendChild(toast);
+        }
+        toast.textContent = message;
+        toast.style.opacity = "1";
+        toast.style.transform = "translateX(-50%) translateY(0)";
+
+        if (window._stealthToastTimer) clearTimeout(window._stealthToastTimer);
+        window._stealthToastTimer = setTimeout(() => {
+            if (toast) {
+                toast.style.opacity = "0";
+                toast.style.transform = "translateX(-50%) translateY(-8px)";
+            }
+        }, 1600);
+    }
+
+    // ====================================================================
+    //  Robust Board Element Finder for Mobile & Desktop
+    // ====================================================================
+    function findChessBoard() {
+        // 1. Strict Board Tag Selectors (direct 8x8 board elements)
+        const strictSelectors = [
+            'wc-chess-board',
+            'chess-board',
+            'cg-board',
+            '#board-single',
+            '.board-layout-component wc-chess-board',
+            '#board-layout-chessboard wc-chess-board'
+        ];
+        for (const sel of strictSelectors) {
+            const found = document.querySelectorAll(sel);
+            for (let i = 0; i < found.length; i++) {
+                const el = found[i];
+                const r = el.getBoundingClientRect();
+                if (r.width > 120 && r.height > 120) {
+                    // Verify it's approximately square (aspect ratio between 0.85 and 1.15)
+                    const ratio = r.width / r.height;
+                    if (ratio > 0.80 && ratio < 1.25) {
+                        return el;
+                    }
+                }
+            }
+        }
+
+        // 2. Fallback: Search inside outer layout containers
+        const layoutContainers = document.querySelectorAll('#board-layout-chessboard, .board-layout-main');
+        for (let i = 0; i < layoutContainers.length; i++) {
+            const container = layoutContainers[i];
+            const childBoard = container.querySelector('wc-chess-board, chess-board, .board');
+            if (childBoard) {
+                const r = childBoard.getBoundingClientRect();
+                if (r.width > 120 && r.height > 120) return childBoard;
+            }
+        }
+
+        // 3. Generic board class fallback
+        const generic = document.querySelectorAll('.board, [id^="board-"]');
+        for (let i = 0; i < generic.length; i++) {
+            const el = generic[i];
+            const r = el.getBoundingClientRect();
+            if (r.width > 120 && r.height > 120) {
+                const ratio = r.width / r.height;
+                if (ratio > 0.80 && ratio < 1.25) return el;
+            }
+        }
+
+        return document.querySelector('wc-chess-board, chess-board, cg-board') || null;
+    }
+
+    // ====================================================================
+    //  Synchronize DOM SVG Overlay with Chessboard Screen Position
+    // ====================================================================
+    function syncOverlayPosition(boardRect) {
+        const domSvg = document.getElementById("stealth-board-overlay");
+        if (!domSvg) return;
+
+        if (window.__stealth_ui_hidden || window.__stealth_settings_arrows === false) {
+            domSvg.style.display = "none";
+            return;
+        }
+
+        const leftPx = boardRect.left + "px";
+        const topPx = boardRect.top + "px";
+        const widthPx = boardRect.width + "px";
+        const heightPx = boardRect.height + "px";
+
+        if (domSvg.style.position !== "fixed") domSvg.style.position = "fixed";
+        if (domSvg.style.margin !== "0px") domSvg.style.margin = "0px";
+        if (domSvg.style.transform !== "none") domSvg.style.transform = "none";
+        if (domSvg.style.left !== leftPx) domSvg.style.left = leftPx;
+        if (domSvg.style.top !== topPx) domSvg.style.top = topPx;
+        if (domSvg.style.width !== widthPx) domSvg.style.width = widthPx;
+        if (domSvg.style.height !== heightPx) domSvg.style.height = heightPx;
+        if (domSvg.getAttribute("width") !== String(boardRect.width)) {
+            domSvg.setAttribute("width", String(boardRect.width));
+        }
+        if (domSvg.getAttribute("height") !== String(boardRect.height)) {
+            domSvg.setAttribute("height", String(boardRect.height));
+        }
+        if (domSvg.getAttribute("viewBox") !== `0 0 ${boardRect.width} ${boardRect.height}`) {
+            domSvg.setAttribute("viewBox", `0 0 ${boardRect.width} ${boardRect.height}`);
+        }
+        if (domSvg.style.display !== "block") {
+            domSvg.style.display = "block";
+        }
+    }
+
+    // ====================================================================
     //  Lichess.org Board Scanner
     // ====================================================================
     function scanLichessBoard() {
@@ -88,17 +319,8 @@ window.injectedStealthFunction = function() {
                 return;
             }
 
-            // Sync DOM overlay position and size in real-time
             const rect = cgBoard.getBoundingClientRect();
-            const domSvg = document.getElementById("stealth-board-overlay");
-            if (domSvg && domSvg.style.display !== "none") {
-                domSvg.style.width = rect.width + "px";
-                domSvg.style.height = rect.height + "px";
-                domSvg.style.left = (window.scrollX + rect.left) + "px";
-                domSvg.style.top = (window.scrollY + rect.top) + "px";
-                domSvg.setAttribute("width", rect.width);
-                domSvg.setAttribute("height", rect.height);
-            }
+            syncOverlayPosition(rect);
 
             const pieces = cgBoard.querySelectorAll('piece');
             if (!pieces.length) {
@@ -107,8 +329,6 @@ window.injectedStealthFunction = function() {
             }
 
             let isWhiteBottom = true;
-
-            // Cache orientation check
             if (cachedIsWhiteBottom !== null && framesSinceOrientationCheck < 30) {
                 isWhiteBottom = cachedIsWhiteBottom;
                 framesSinceOrientationCheck++;
@@ -121,11 +341,8 @@ window.injectedStealthFunction = function() {
                 cachedIsWhiteBottom = isWhiteBottom;
             }
 
-            // Board pixel dimensions for coordinate conversion
-            const boardWidth = rect.width;
-            const boardHeight = rect.height;
-            const squareWidth = boardWidth / 8;
-            const squareHeight = boardHeight / 8;
+            const squareWidth = rect.width / 8;
+            const squareHeight = rect.height / 8;
 
             const roleMap = {
                 'king': 'k', 'queen': 'q', 'rook': 'r',
@@ -174,9 +391,7 @@ window.injectedStealthFunction = function() {
             let clockEl = document.querySelector('.rclock-bottom .time, .rclock.rclock-bottom time');
             if (!clockEl) {
                 const clocks = document.querySelectorAll('.rclock time, .clock');
-                if (clocks.length > 0) {
-                    clockEl = clocks[clocks.length - 1];
-                }
+                if (clocks.length > 0) clockEl = clocks[clocks.length - 1];
             }
             if (clockEl) {
                 const timeText = clockEl.textContent.trim();
@@ -198,15 +413,16 @@ window.injectedStealthFunction = function() {
                 }
             }
 
-            // Throttle & send
+            // Low time warning beep
+            if (timeLeft <= 15 && timeLeft > 0 && Date.now() - lastLowTimeBeep > 3000) {
+                lastLowTimeBeep = Date.now();
+                SoundFx.playLowTime();
+            }
+
             sendBoardPayload(boardArray, isWhiteBottom, timeLeft);
 
         } catch (err) {
             console.error("Lichess scan loop error:", err);
-            try {
-                const errorPayload = { type: "ERROR", message: "LichessScan: " + err.message, stack: err.stack };
-                sendBridgeMessage(errorPayload);
-            } catch (postErr) {}
         }
 
         const delay = Math.floor(Math.random() * 20) + 70;
@@ -214,15 +430,27 @@ window.injectedStealthFunction = function() {
     }
 
     // ====================================================================
-    //  Shared payload sender (throttles messages to parent Capacitor app)
+    //  Shared Payload Sender (Throttles messages to parent Capacitor app)
     // ====================================================================
     function sendBoardPayload(boardArray, isWhiteBottom, timeLeft) {
         const matrixStr = JSON.stringify(boardArray);
         const timeDiff = lastSentTimeLeft !== null ? Math.abs(timeLeft - lastSentTimeLeft) : 999;
         
-        const shouldSend = (matrixStr !== lastSentMatrixStr) || 
-                          (isWhiteBottom !== lastSentIsWhiteBottom) || 
-                          (timeDiff >= 1.0);
+        const boardChanged = (matrixStr !== lastSentMatrixStr) || (isWhiteBottom !== lastSentIsWhiteBottom);
+        const shouldSend = boardChanged || (timeDiff >= 1.0);
+
+        if (boardChanged && lastSentMatrixStr !== "") {
+            // Position changed on the board! Instantly clear outdated arrows
+            // and show calculating indicator on HUD so user doesn't follow old tactics
+            const domSvg = document.getElementById("stealth-board-overlay");
+            if (domSvg) {
+                Array.from(domSvg.children).forEach(c => {
+                    if (c.tagName.toLowerCase() !== 'defs') c.remove();
+                });
+            }
+            // Update HUD into calculating state while keeping last known score
+            drawGameHud([], timeLeft, window.__stealth_settings_hud !== false, true);
+        }
 
         if (shouldSend) {
             lastSentMatrixStr = matrixStr;
@@ -240,30 +468,9 @@ window.injectedStealthFunction = function() {
         }
     }
 
-    // Robust Board Element Finder for Mobile & Desktop
-    function findChessBoard() {
-        const selectors = [
-            '#board-layout-chessboard wc-chess-board',
-            'wc-chess-board',
-            'chess-board',
-            '#board-single',
-            '#board-layout-chessboard',
-            '.board',
-            'cg-board',
-            '[id^="board-"]'
-        ];
-        const candidates = document.querySelectorAll(selectors.join(', '));
-        for (let i = 0; i < candidates.length; i++) {
-            const el = candidates[i];
-            const r = el.getBoundingClientRect();
-            if (r.width > 120 && r.height > 120) {
-                return el;
-            }
-        }
-        return candidates[0] || null;
-    }
-
-    // Main Chess.com scanning loop
+    // ====================================================================
+    //  Main Chess.com Scanning Loop
+    // ====================================================================
     function scanChessBoard() {
         try {
             const boardElement = findChessBoard();
@@ -273,6 +480,8 @@ window.injectedStealthFunction = function() {
             }
 
             const rect = boardElement.getBoundingClientRect();
+            syncOverlayPosition(rect);
+
             const root = boardElement.shadowRoot || boardElement;
             let pieces = root.querySelectorAll('.piece, piece, [class*="piece "]');
             if (!pieces.length) {
@@ -321,8 +530,7 @@ window.injectedStealthFunction = function() {
                         rank = parseInt(coordPart.substring(2, 4), 10);
                     }
                     const aRect = anchorPiece.getBoundingClientRect();
-                    const bRect = boardElement.getBoundingClientRect();
-                    const relativeY = (aRect.top - bRect.top) / bRect.height;
+                    const relativeY = (aRect.top - rect.top) / rect.height;
                     const expectedY_WhiteBottom = (8 - rank) / 8;
                     const expectedY_BlackBottom = (rank - 1) / 8;
                     isWhiteBottom = Math.abs(relativeY - expectedY_WhiteBottom) < Math.abs(relativeY - expectedY_BlackBottom);
@@ -370,9 +578,7 @@ window.injectedStealthFunction = function() {
             let clockEl = document.querySelector('.clock-bottom .clock-time-monospace, .clock-bottom span, .clock-bottom');
             if (!clockEl) {
                 const clocks = document.querySelectorAll('.clock-component');
-                if (clocks.length > 0) {
-                    clockEl = clocks[clocks.length - 1];
-                }
+                if (clocks.length > 0) clockEl = clocks[clocks.length - 1];
             }
             if (clockEl) {
                 const timeText = clockEl.textContent.trim();
@@ -394,30 +600,32 @@ window.injectedStealthFunction = function() {
                 }
             }
 
-            // Use shared throttled payload sender
+            // Low time warning beep
+            if (timeLeft <= 15 && timeLeft > 0 && Date.now() - lastLowTimeBeep > 3000) {
+                lastLowTimeBeep = Date.now();
+                SoundFx.playLowTime();
+            }
+
             sendBoardPayload(boardArray, isWhiteBottom, timeLeft);
+
         } catch (err) {
-            console.error("Stealth scan loop error:", err);
-            try {
-                const errorPayload = {
-                    type: "ERROR",
-                    message: "Scan: " + err.message,
-                    stack: err.stack
-                };
-                sendBridgeMessage(errorPayload);
-            } catch (postErr) {}
+            console.error("Chess.com scan loop error:", err);
         }
 
-        // Schedule next scan recursion (matches Py speed ~70-90ms)
         const delay = Math.floor(Math.random() * 20) + 70;
         nativeSetTimeout(scanChessBoard, delay);
     }
 
-    // SVG Overlay Draw Logic
-    window.drawStealthOverlay = function(moves, isWhiteBottom, timeLeft, showArrows, showHud, stealthScreen) {
-        window.__stealth_settings_arrows = showArrows;
-        window.__stealth_settings_hud = showHud;
+    // ====================================================================
+    //  High-Performance SVG Overlay Drawer
+    // ====================================================================
+    window.drawStealthOverlay = function(moves, isWhiteBottom, timeLeft, showArrows, showHud, stealthScreen, soundEnabled) {
+        window.__stealth_settings_arrows = (showArrows !== false);
+        window.__stealth_settings_hud = (showHud !== false);
         window.__stealth_settings_secure = (stealthScreen !== false);
+        if (soundEnabled !== undefined) {
+            window.__stealth_sound_enabled = soundEnabled;
+        }
 
         if (window.__stealth_ui_hidden) {
             showArrows = false;
@@ -429,78 +637,41 @@ window.injectedStealthFunction = function() {
             if (!boardElement) return;
 
             const rect = boardElement.getBoundingClientRect();
-            const boardWidth = rect.width || boardElement.clientWidth || 360;
-            const boardHeight = rect.height || boardElement.clientHeight || boardWidth;
-            const rectData = { left: rect.left, top: rect.top, width: boardWidth, height: boardHeight };
+            const boardWidth = rect.width || 360;
+            const boardHeight = rect.height || boardWidth;
 
-            // Check if iOS native secure overlay is available
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-            const hasIosNativeOverlay = isIOS && !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cordova_iab);
-
-            // If secure stealth screen is active AND iOS native overlay exists, route all drawing to the native secure webview
-            if (window.__stealth_settings_secure && hasIosNativeOverlay) {
-                const root = boardElement.shadowRoot || boardElement;
-                let oldSvg = document.getElementById("stealth-board-overlay") || root.querySelector("#stealth-board-overlay");
-                if (oldSvg) oldSvg.style.setProperty("display", "none", "important");
-                let hud = document.getElementById("stealth-hud-card");
-                if (hud) hud.style.setProperty("display", "none", "important");
-
-                sendBridgeMessage({
-                    id: "stealth_draw_overlay",
-                    d: JSON.stringify({
-                        moves: moves,
-                        isWhiteBottom: isWhiteBottom,
-                        timeLeft: timeLeft,
-                        showArrows: showArrows,
-                        showHud: showHud,
-                        rect: rectData,
-                        secretHidden: !!window.__stealth_ui_hidden
-                    })
-                });
-                return;
-            }
-
-            // Otherwise (on Android or when iOS native overlay is not active), draw directly on the chessboard DOM!
-            const targetContainer = boardElement.shadowRoot || boardElement;
-            let svg = targetContainer.querySelector("#stealth-board-overlay") || document.getElementById("stealth-board-overlay");
+            // Mount SVG overlay directly on document.body so LitElement never deletes it!
+            let svg = document.getElementById("stealth-board-overlay");
             if (!svg) {
                 svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
                 svg.setAttribute("id", "stealth-board-overlay");
 
                 const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
                 defs.innerHTML = `
-                    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-                        <feDropShadow dx="1" dy="2" stdDeviation="2" flood-color="black" flood-opacity="0.6"/>
+                    <filter id="stealth-shadow" x="-30%" y="-30%" width="160%" height="160%">
+                        <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="black" flood-opacity="0.85"/>
                     </filter>
-                    <filter id="glow-teal" x="-20%" y="-20%" width="140%" height="140%">
-                        <feGaussianBlur stdDeviation="3" result="blur" />
-                        <feComponentTransfer in="blur" result="glow1">
-                            <feFuncA type="linear" slope="0.6"/>
-                        </feComponentTransfer>
+                    <filter id="stealth-glow" x="-30%" y="-30%" width="160%" height="160%">
+                        <feGaussianBlur stdDeviation="3.5" result="coloredBlur"/>
                         <feMerge>
-                            <feMergeNode in="glow1" />
-                            <feMergeNode in="SourceGraphic" />
+                            <feMergeNode in="coloredBlur"/>
+                            <feMergeNode in="SourceGraphic"/>
                         </feMerge>
                     </filter>
                 `;
                 svg.appendChild(defs);
+                document.body.appendChild(svg);
             }
 
-            // Pin SVG directly to the board container so it scales & scrolls 1:1 with board
-            if (window.getComputedStyle(boardElement).position === 'static') {
-                boardElement.style.position = 'relative';
-            }
-            if (svg.parentElement !== targetContainer) {
-                targetContainer.appendChild(svg);
-            }
-
-            svg.style.position = "absolute";
-            svg.style.top = "0px";
-            svg.style.left = "0px";
-            svg.style.width = "100%";
-            svg.style.height = "100%";
+            svg.style.position = "fixed";
+            svg.style.left = rect.left + "px";
+            svg.style.top = rect.top + "px";
+            svg.style.width = boardWidth + "px";
+            svg.style.height = boardHeight + "px";
             svg.style.pointerEvents = "none";
-            svg.style.zIndex = "99999";
+            svg.style.zIndex = "999999";
+            svg.style.margin = "0";
+            svg.style.transform = "none";
             svg.setAttribute("viewBox", `0 0 ${boardWidth} ${boardHeight}`);
 
             // Clean previous arrows, highlights, and annotations but keep defs
@@ -508,9 +679,9 @@ window.injectedStealthFunction = function() {
                 if (c.tagName.toLowerCase() !== 'defs') c.remove();
             });
 
-            if (showArrows === false) {
-                svg.style.display = "none";
-                drawGameHud(moves, timeLeft, showHud);
+            if (!showArrows || !moves || moves.length === 0) {
+                if (!showArrows) svg.style.display = "none";
+                drawGameHud(moves || [], timeLeft, showHud, moves.length === 0);
                 return;
             } else {
                 svg.style.display = "block";
@@ -533,11 +704,27 @@ window.injectedStealthFunction = function() {
                 return { x, y, col, row };
             }
 
-            // Parse moves and compare evaluations
+            // Audio Cue Trigger on new best move
+            const currentBestMove = moves[0] ? moves[0].move : "";
+            if (currentBestMove && currentBestMove !== window.__stealth_last_best_move) {
+                window.__stealth_last_best_move = currentBestMove;
+                const topScore = moves[0].score || "";
+                if (topScore.includes("M")) {
+                    SoundFx.playMate();
+                } else {
+                    const val = parseFloat(topScore) || 0.0;
+                    if (val >= 3.5 || val <= -3.5) {
+                        SoundFx.playBrilliant();
+                    } else {
+                        SoundFx.playMove();
+                    }
+                }
+            }
+
+            // Parse move scores
             let parsedScores = [];
             let bestScoreVal = 0.0;
-
-            moves.forEach((m, idx) => {
+            moves.forEach((m) => {
                 let val = 0.0;
                 let isMate = false;
                 if (m.score && m.score.includes("M")) {
@@ -548,10 +735,7 @@ window.injectedStealthFunction = function() {
                 }
                 parsedScores.push({ val, isMate });
             });
-
-            if (parsedScores.length > 0) {
-                bestScoreVal = parsedScores[0].val;
-            }
+            if (parsedScores.length > 0) bestScoreVal = parsedScores[0].val;
 
             // Render moves in reverse order so best move paints on top
             for (let idx = moves.length - 1; idx >= 0; idx--) {
@@ -562,27 +746,28 @@ window.injectedStealthFunction = function() {
                 const scoreVal = parsedScores[idx].val;
                 const isMate = parsedScores[idx].isMate;
 
-                // Classify move quality & colors
-                let color = "rgba(240, 150, 20, 0.85)";
-                let strokeWidth = idx === 0 ? Math.max(4, sqW * 0.12) : Math.max(2.5, sqW * 0.08);
-                let markerSize = idx === 0 ? Math.max(14, sqW * 0.32) : Math.max(10, sqW * 0.24);
+                // Color palette & sizing hierarchy
+                let isTopMove = (idx === 0);
+                let color = isTopMove ? "rgba(46, 204, 113, 0.95)" : "rgba(240, 150, 20, 0.40)";
+                let strokeWidth = isTopMove ? Math.max(4.2, sqW * 0.11) : Math.max(2.2, sqW * 0.055);
+                let markerSize = isTopMove ? Math.max(13, sqW * 0.30) : Math.max(8.5, sqW * 0.18);
 
                 if (isMate) {
-                    color = "rgba(138, 43, 226, 0.9)";
-                } else if (idx === 0) {
+                    color = isTopMove ? "rgba(155, 89, 182, 0.95)" : "rgba(155, 89, 182, 0.40)"; // Royal purple
+                } else if (isTopMove) {
                     if (scoreVal >= 3.5) {
-                        color = "rgba(27, 172, 166, 0.9)";
+                        color = "rgba(26, 188, 156, 0.95)"; // Brilliant Teal
                     } else {
-                        color = "rgba(38, 187, 92, 0.9)";
+                        color = "rgba(46, 204, 113, 0.95)"; // Emerald Green
                     }
                 } else {
                     const diff = Math.abs(bestScoreVal - scoreVal);
                     if (diff >= 2.0) {
-                        color = "rgba(235, 60, 60, 0.9)";
+                        color = "rgba(231, 76, 60, 0.35)"; // Red Blunder
                     } else if (diff >= 1.0) {
-                        color = "rgba(240, 100, 40, 0.85)";
+                        color = "rgba(230, 126, 34, 0.35)"; // Inaccuracy Orange
                     } else if (diff <= 0.35) {
-                        color = "rgba(149, 183, 33, 0.85)";
+                        color = "rgba(160, 212, 104, 0.40)"; // Excellent Olive
                     }
                 }
 
@@ -591,32 +776,34 @@ window.injectedStealthFunction = function() {
                 const fromC = sqToCoords(fromSq);
                 const toC = sqToCoords(toSq);
 
-                // A. Draw square highlights
-                const startHighlight = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-                startHighlight.setAttribute("x", (fromC.col * sqW + 2).toString());
-                startHighlight.setAttribute("y", (fromC.row * sqH + 2).toString());
-                startHighlight.setAttribute("width", (sqW - 4).toString());
-                startHighlight.setAttribute("height", (sqH - 4).toString());
-                startHighlight.setAttribute("rx", "6");
-                startHighlight.setAttribute("fill", color);
-                startHighlight.setAttribute("fill-opacity", idx === 0 ? "0.22" : "0.12");
-                startHighlight.setAttribute("stroke", color);
-                startHighlight.setAttribute("stroke-width", idx === 0 ? "2.5" : "1.5");
-                svg.appendChild(startHighlight);
+                // A. Square Highlights (Only for the #1 Best Move)
+                if (isTopMove) {
+                    const startHighlight = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    startHighlight.setAttribute("x", (fromC.col * sqW + 2).toString());
+                    startHighlight.setAttribute("y", (fromC.row * sqH + 2).toString());
+                    startHighlight.setAttribute("width", (sqW - 4).toString());
+                    startHighlight.setAttribute("height", (sqH - 4).toString());
+                    startHighlight.setAttribute("rx", "6");
+                    startHighlight.setAttribute("fill", color);
+                    startHighlight.setAttribute("fill-opacity", "0.18");
+                    startHighlight.setAttribute("stroke", color);
+                    startHighlight.setAttribute("stroke-width", "1.8");
+                    svg.appendChild(startHighlight);
 
-                const endHighlight = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-                endHighlight.setAttribute("x", (toC.col * sqW + 2).toString());
-                endHighlight.setAttribute("y", (toC.row * sqH + 2).toString());
-                endHighlight.setAttribute("width", (sqW - 4).toString());
-                endHighlight.setAttribute("height", (sqH - 4).toString());
-                endHighlight.setAttribute("rx", "6");
-                endHighlight.setAttribute("fill", color);
-                endHighlight.setAttribute("fill-opacity", idx === 0 ? "0.22" : "0.12");
-                endHighlight.setAttribute("stroke", color);
-                endHighlight.setAttribute("stroke-width", idx === 0 ? "2.5" : "1.5");
-                svg.appendChild(endHighlight);
+                    const endHighlight = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    endHighlight.setAttribute("x", (toC.col * sqW + 2).toString());
+                    endHighlight.setAttribute("y", (toC.row * sqH + 2).toString());
+                    endHighlight.setAttribute("width", (sqW - 4).toString());
+                    endHighlight.setAttribute("height", (sqH - 4).toString());
+                    endHighlight.setAttribute("rx", "6");
+                    endHighlight.setAttribute("fill", color);
+                    endHighlight.setAttribute("fill-opacity", "0.18");
+                    endHighlight.setAttribute("stroke", color);
+                    endHighlight.setAttribute("stroke-width", "1.8");
+                    svg.appendChild(endHighlight);
+                }
 
-                // B. Draw arrows with proportional padding
+                // B. Arrows
                 const dx = toC.x - fromC.x;
                 const dy = toC.y - fromC.y;
                 const length = Math.hypot(dx, dy);
@@ -624,24 +811,26 @@ window.injectedStealthFunction = function() {
 
                 const ux = dx / length;
                 const uy = dy / length;
-                const paddingStart = Math.min(length * 0.15, sqW * 0.18);
-                const paddingEnd = Math.min(length * 0.35, sqW * 0.35);
+                const paddingStart = Math.min(length * 0.15, sqW * (isTopMove ? 0.18 : 0.12));
+                const paddingEnd = Math.min(length * 0.35, sqW * (isTopMove ? 0.32 : 0.20));
                 const startX = fromC.x + ux * paddingStart;
                 const startY = fromC.y + uy * paddingStart;
                 const endX = fromC.x + ux * (length - paddingEnd);
                 const endY = fromC.y + uy * (length - paddingEnd);
 
-                // Shadow shaft
-                const shadowLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                shadowLine.setAttribute("x1", startX.toString());
-                shadowLine.setAttribute("y1", startY.toString());
-                shadowLine.setAttribute("x2", endX.toString());
-                shadowLine.setAttribute("y2", endY.toString());
-                shadowLine.setAttribute("stroke", "black");
-                shadowLine.setAttribute("stroke-opacity", "0.5");
-                shadowLine.setAttribute("stroke-width", (strokeWidth + 3).toString());
-                shadowLine.setAttribute("stroke-linecap", "round");
-                svg.appendChild(shadowLine);
+                // Drop shadow line (Only for Best Move)
+                if (isTopMove) {
+                    const shadowLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    shadowLine.setAttribute("x1", startX.toString());
+                    shadowLine.setAttribute("y1", startY.toString());
+                    shadowLine.setAttribute("x2", endX.toString());
+                    shadowLine.setAttribute("y2", endY.toString());
+                    shadowLine.setAttribute("stroke", "black");
+                    shadowLine.setAttribute("stroke-opacity", "0.55");
+                    shadowLine.setAttribute("stroke-width", (strokeWidth + 2.5).toString());
+                    shadowLine.setAttribute("stroke-linecap", "round");
+                    svg.appendChild(shadowLine);
+                }
 
                 // Main arrow shaft
                 const mainLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
@@ -662,83 +851,90 @@ window.injectedStealthFunction = function() {
                 const p3x = endX - ux * markerSize - (-uy) * (markerSize * 0.65);
                 const p3y = endY - uy * markerSize - ux * (markerSize * 0.65);
 
-                const arrowHeadShadow = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-                arrowHeadShadow.setAttribute("points", `${p1x+1},${p1y+1.5} ${p2x+1},${p2y+1.5} ${p3x+1},${p3y+1.5}`);
-                arrowHeadShadow.setAttribute("fill", "black");
-                arrowHeadShadow.setAttribute("fill-opacity", "0.5");
-                svg.appendChild(arrowHeadShadow);
+                if (isTopMove) {
+                    const arrowHeadShadow = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+                    arrowHeadShadow.setAttribute("points", `${p1x+1},${p1y+1.5} ${p2x+1},${p2y+1.5} ${p3x+1},${p3y+1.5}`);
+                    arrowHeadShadow.setAttribute("fill", "black");
+                    arrowHeadShadow.setAttribute("fill-opacity", "0.55");
+                    svg.appendChild(arrowHeadShadow);
+                }
 
                 const arrowHead = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
                 arrowHead.setAttribute("points", `${p1x},${p1y} ${p2x},${p2y} ${p3x},${p3y}`);
                 arrowHead.setAttribute("fill", color);
                 svg.appendChild(arrowHead);
 
-                // Start node circle
-                const startDot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                startDot.setAttribute("cx", startX.toString());
-                startDot.setAttribute("cy", startY.toString());
-                startDot.setAttribute("r", (strokeWidth * 1.2).toString());
-                startDot.setAttribute("fill", color);
-                startDot.setAttribute("stroke", "white");
-                startDot.setAttribute("stroke-width", "1");
-                svg.appendChild(startDot);
+                // Start node circle (Only for Best Move)
+                if (isTopMove) {
+                    const startDot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                    startDot.setAttribute("cx", startX.toString());
+                    startDot.setAttribute("cy", startY.toString());
+                    startDot.setAttribute("r", (strokeWidth * 1.15).toString());
+                    startDot.setAttribute("fill", color);
+                    startDot.setAttribute("stroke", "white");
+                    startDot.setAttribute("stroke-width", "1.5");
+                    svg.appendChild(startDot);
+                }
             }
 
-            // 2. Render In-Game HUD Dashboard
-            drawGameHud(moves, timeLeft, showHud);
+            // Draw HUD
+            drawGameHud(moves, timeLeft, showHud, false);
+
         } catch (err) {
             console.error("Stealth overlay draw error:", err);
-            try {
-                const errorPayload = {
-                    type: "ERROR",
-                    message: "Draw Overlay: " + err.message,
-                    stack: err.stack
-                };
-                sendBridgeMessage(errorPayload);
-            } catch (postErr) {}
         }
     };
 
-    // HTML Mobile HUD Overlay
-    function drawGameHud(moves, timeLeft, showHud) {
+    // ====================================================================
+    //  Modern Mobile HUD Overlay (Glassmorphism & Expand/Minimize)
+    // ====================================================================
+    function drawGameHud(moves, timeLeft, showHud, isCalculating) {
         let hud = document.getElementById("stealth-hud-card");
-        if (showHud === false) {
+        if (showHud === false || window.__stealth_ui_hidden) {
             if (hud) hud.style.setProperty("display", "none", "important");
+            updateStealthFloatingBadge();
             return;
-        } else {
-            if (hud) hud.style.setProperty("display", "flex", "important");
         }
+        updateStealthFloatingBadge();
+
         if (!hud) {
             hud = document.createElement("div");
             hud.setAttribute("id", "stealth-hud-card");
             Object.assign(hud.style, {
                 position: "fixed",
-                bottom: "12px",
+                bottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
                 left: "12px",
                 right: "12px",
-                backgroundColor: "rgba(15, 15, 20, 0.9)",
-                border: "1.5px solid rgba(27, 172, 166, 0.8)",
-                borderRadius: "12px",
+                backgroundColor: "rgba(12, 12, 18, 0.94)",
+                border: "1.5px solid rgba(27, 172, 166, 0.7)",
+                borderRadius: "14px",
                 padding: "10px 14px",
                 color: "#ffffff",
                 fontFamily: "'Segoe UI', Arial, sans-serif",
                 fontSize: "12px",
                 zIndex: "999999",
-                boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+                boxShadow: "0 10px 30px rgba(0,0,0,0.6)",
                 display: "flex",
                 flexDirection: "column",
                 gap: "8px",
-                backdropFilter: "blur(8px)",
-                webkitBackdropFilter: "blur(8px)"
+                backdropFilter: "blur(12px)",
+                webkitBackdropFilter: "blur(12px)",
+                transition: "all 0.25s ease"
             });
             document.body.appendChild(hud);
         }
 
-        // Adjust HUD border based on remaining time
-        let borderColor = "rgba(27, 172, 166, 0.8)";
+        hud.style.setProperty("display", "flex", "important");
+
+        // Format Clock
+        const m = Math.floor(timeLeft / 60);
+        const s = Math.floor(timeLeft % 60);
+        const clockStr = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+
+        // Color state based on time
+        let borderColor = "rgba(27, 172, 166, 0.7)";
         let timeColor = "#2ecc71";
         let timeState = "SAFE";
-
         if (timeLeft <= 15) {
             borderColor = "rgba(235, 60, 60, 0.9)";
             timeColor = "#ff4f4f";
@@ -750,15 +946,59 @@ window.injectedStealthFunction = function() {
         }
         hud.style.borderColor = borderColor;
 
-        // Best move evaluation score
-        let bestScore = "0.00";
-        if (moves.length > 0) {
-            bestScore = moves[0].score;
+        // If HUD is minimized, render sleek compact floating pill
+        if (window.__stealth_hud_minimized) {
+            hud.style.padding = "6px 12px";
+            hud.style.gap = "0";
+            hud.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-weight:bold; color:#ff3333;">🛡️ STEALTH</span>
+                        <span style="font-size:11px; color:#2ecc71; font-weight:bold;">${window.__stealth_last_known_score}</span>
+                        <span style="font-size:10px; color:${timeColor};">⏱️ ${clockStr}</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <button id="stealth-btn-toggle-hud" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); border-radius:6px; color:#fff; font-size:10px; padding:3px 8px; cursor:pointer;">[+] EXPAND</button>
+                        <button id="stealth-btn-min-hide" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); border-radius:6px; color:#bbb; font-size:11px; padding:2px 6px; cursor:pointer;" title="Hide UI">👁️</button>
+                    </div>
+                </div>
+            `;
+            const expandBtn = hud.querySelector("#stealth-btn-toggle-hud");
+            if (expandBtn) {
+                expandBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    window.__stealth_hud_minimized = false;
+                    drawGameHud(moves, timeLeft, showHud, isCalculating);
+                };
+            }
+            const minHideBtn = hud.querySelector("#stealth-btn-min-hide");
+            if (minHideBtn) {
+                minHideBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    window.__stealth_ui_hidden = true;
+                    hud.style.setProperty("display", "none", "important");
+                    const domSvg = document.getElementById("stealth-board-overlay");
+                    if (domSvg) domSvg.style.setProperty("display", "none", "important");
+                    updateStealthFloatingBadge();
+                    showStealthToast("🛡️ Stealth Mode Active (Tap 🛡️ icon to restore)");
+                };
+            }
+            return;
         }
+
+        hud.style.padding = "10px 14px";
+        hud.style.gap = "8px";
+
+        // Evaluation calculation & retention
+        let bestScore = window.__stealth_last_known_score || "0.00";
+        if (moves && moves.length > 0 && moves[0].score) {
+            bestScore = moves[0].score;
+            window.__stealth_last_known_score = bestScore;
+        }
+
         let scoreVal = parseFloat(bestScore) || 0.0;
         let isMate = bestScore.includes("M");
 
-        // Vertical white/black power bar calculation
         let barRatio = 50;
         if (isMate) {
             barRatio = bestScore.includes("-") ? 5 : 95;
@@ -767,139 +1007,260 @@ window.injectedStealthFunction = function() {
             barRatio = ((clamped + 5.0) / 10.0) * 100;
         }
 
-        // Format Clock
-        const m = Math.floor(timeLeft / 60);
-        const s = Math.floor(timeLeft % 60);
-        const clockStr = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
-
-        // Construct HTML content inside HUD
+        // Candidate moves rows
         let candidateRowsHtml = "";
-        moves.forEach((item, index) => {
-            let badgeText = "GOOD";
-            let badgeBg = "rgba(240, 150, 20, 0.15)";
-            let badgeColor = "#f39c12";
+        if (moves && moves.length > 0) {
+            moves.forEach((item, index) => {
+                let badgeText = "GOOD";
+                let badgeBg = "rgba(240, 150, 20, 0.15)";
+                let badgeColor = "#f39c12";
 
-            if (item.score.includes("M")) {
-                badgeText = "MATE";
-                badgeBg = "rgba(138, 43, 226, 0.2)";
-                badgeColor = "#9b59b6";
-            } else if (index === 0) {
-                if (scoreVal >= 3.5) {
-                    badgeText = "BRILLIANT";
-                    badgeBg = "rgba(27, 172, 166, 0.2)";
-                    badgeColor = "#1abc9c";
+                if (item.score.includes("M")) {
+                    badgeText = "MATE";
+                    badgeBg = "rgba(155, 89, 182, 0.25)";
+                    badgeColor = "#9b59b6";
+                } else if (index === 0) {
+                    if (scoreVal >= 3.5) {
+                        badgeText = "BRILLIANT";
+                        badgeBg = "rgba(26, 188, 156, 0.25)";
+                        badgeColor = "#1abc9c";
+                    } else {
+                        badgeText = "BEST";
+                        badgeBg = "rgba(46, 204, 113, 0.25)";
+                        badgeColor = "#2ecc71";
+                    }
                 } else {
-                    badgeText = "BEST";
-                    badgeBg = "rgba(46, 187, 92, 0.2)";
-                    badgeColor = "#2ecc71";
+                    let firstVal = parseFloat(moves[0].score) || 0.0;
+                    let currentVal = parseFloat(item.score) || 0.0;
+                    let diff = Math.abs(firstVal - currentVal);
+                    if (diff >= 2.0) {
+                        badgeText = "BLUNDER";
+                        badgeBg = "rgba(231, 76, 60, 0.25)";
+                        badgeColor = "#e74c3c";
+                    } else if (diff >= 1.0) {
+                        badgeText = "INACCURACY";
+                        badgeBg = "rgba(230, 126, 34, 0.25)";
+                        badgeColor = "#e67e22";
+                    } else if (diff <= 0.35) {
+                        badgeText = "EXCELLENT";
+                        badgeBg = "rgba(160, 212, 104, 0.25)";
+                        badgeColor = "#a0d468";
+                    }
                 }
-            } else {
-                let firstVal = parseFloat(moves[0].score) || 0.0;
-                let currentVal = parseFloat(item.score) || 0.0;
-                let diff = Math.abs(firstVal - currentVal);
-                if (diff >= 2.0) {
-                    badgeText = "BLUNDER";
-                    badgeBg = "rgba(235, 60, 60, 0.2)";
-                    badgeColor = "#e74c3c";
-                } else if (diff >= 1.0) {
-                    badgeText = "INACCURACY";
-                    badgeBg = "rgba(240, 100, 40, 0.2)";
-                    badgeColor = "#e67e22";
-                } else if (diff <= 0.35) {
-                    badgeText = "EXCELLENT";
-                    badgeBg = "rgba(149, 183, 33, 0.2)";
-                    badgeColor = "#a0d468";
-                }
-            }
 
-            candidateRowsHtml += `
-                <div style="display:flex; justify-content:space-between; align-items:center; background-color:rgba(255,255,255,0.03); padding:4px 8px; border-radius:4px;">
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <span style="width:5px; height:5px; border-radius:50%; background-color:${badgeColor};"></span>
-                        <strong style="color:#e4e4e7;">${index+1}. ${item.move}</strong>
-                        <span style="color:#8a8a93; font-size:10px;">(${item.score})</span>
+                candidateRowsHtml += `
+                    <div style="display:flex; justify-content:space-between; align-items:center; background-color:rgba(255,255,255,0.04); padding:4px 8px; border-radius:6px;">
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <span style="width:6px; height:6px; border-radius:50%; background-color:${badgeColor};"></span>
+                            <strong style="color:#f5f5f7;">${index+1}. ${item.move}</strong>
+                            <span style="color:#8a8a93; font-size:10px;">(${item.score})</span>
+                        </div>
+                        <span style="font-size:9px; font-weight:bold; background-color:${badgeBg}; color:${badgeColor}; padding:2px 6px; border-radius:4px;">${badgeText}</span>
                     </div>
-                    <span style="font-size:9px; font-weight:bold; background-color:${badgeBg}; color:${badgeColor}; padding:2px 6px; border-radius:3px;">${badgeText}</span>
+                `;
+            });
+        } else {
+            candidateRowsHtml = `
+                <div style="display:flex; align-items:center; justify-content:center; gap:8px; padding:8px; background:rgba(255,255,255,0.03); border-radius:6px; color:#1abc9c; font-weight:600; font-size:11px;">
+                    <span style="display:inline-block; animation:stealthPulse 1.2s infinite;">⚡</span>
+                    <span>CALCULATING BEST MOVE...</span>
                 </div>
             `;
-        });
+        }
 
         hud.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:4px;">
-                <span style="font-weight:bold; letter-spacing:0.5px; color:#ff3333;">🛡️ STEALTH ASSISTANT HUD</span>
-                <span style="font-size:10px; color:#8a8a93;">TIME: <strong style="color:${timeColor}">${clockStr}</strong></span>
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:5px;">
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="font-weight:bold; letter-spacing:0.5px; color:#ff3333;">🛡️ STEALTH ASSISTANT</span>
+                    <span style="font-size:10px; color:#8a8a93;">| ⏱️ <strong style="color:${timeColor}">${clockStr}</strong></span>
+                </div>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <button id="stealth-btn-toggle-sound" style="background:none; border:none; color:#aaa; font-size:12px; cursor:pointer;" title="Toggle Sound">
+                        ${window.__stealth_sound_enabled ? '🔊' : '🔇'}
+                    </button>
+                    <button id="stealth-btn-minimize" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:4px; color:#ddd; font-size:10px; padding:2px 6px; cursor:pointer;">[-] MIN</button>
+                    <button id="stealth-btn-hide-ui" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:4px; color:#ddd; font-size:10px; padding:2px 6px; cursor:pointer;" title="Hide UI (Stealth)">👁️ HIDE</button>
+                </div>
             </div>
             
             <div style="display:flex; gap:12px; align-items:center;">
                 <!-- Vertical Power Bar -->
-                <div style="width:10px; height:60px; background-color:#2a2a2f; border-radius:3px; position:relative; border:1px solid rgba(255,255,255,0.1); overflow:hidden;">
-                    <div style="position:absolute; bottom:0; left:0; width:100%; height:${barRatio}%; background-color:#ececec; transition:height 0.3s;"></div>
+                <div style="width:10px; height:50px; background-color:#202026; border-radius:3px; position:relative; border:1px solid rgba(255,255,255,0.15); overflow:hidden;">
+                    <div style="position:absolute; bottom:0; left:0; width:100%; height:${barRatio}%; background:linear-gradient(to top, #2ecc71, #1abc9c); transition:height 0.3s ease;"></div>
                 </div>
 
                 <!-- Live Eval Panel -->
-                <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                <div style="flex:1; display:flex; flex-direction:column; gap:3px;">
                     <div style="display:flex; justify-content:space-between;">
-                        <span style="color:#8a8a93;">Evaluation:</span>
-                        <strong style="color:${scoreVal >= 0 ? '#2ecc71' : '#ff4f4f'}">${scoreVal > 0 ? '+' : ''}${bestScore}</strong>
+                        <span style="color:#8a8a93; font-size:11px;">Evaluation:</span>
+                        <strong style="color:${scoreVal >= 0 ? '#2ecc71' : '#ff4f4f'}; font-size:13px;">${scoreVal > 0 ? '+' : ''}${bestScore}</strong>
                     </div>
                     <div style="display:flex; justify-content:space-between;">
-                        <span style="color:#8a8a93;">Panic Mode:</span>
-                        <span style="font-weight:bold; color:${timeColor}">${timeState}</span>
+                        <span style="color:#8a8a93; font-size:11px;">Time Status:</span>
+                        <span style="font-weight:bold; color:${timeColor}; font-size:11px;">${timeState}</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Candidate list -->
-            <div style="display:flex; flex-direction:column; gap:4px; margin-top:2px;">
+            <!-- Candidate list or Calculating State -->
+            <div style="display:flex; flex-direction:column; gap:4px;">
                 ${candidateRowsHtml}
             </div>
         `;
+
+        // Bind HUD controls
+        const minBtn = hud.querySelector("#stealth-btn-minimize");
+        if (minBtn) {
+            minBtn.onclick = (e) => {
+                e.stopPropagation();
+                window.__stealth_hud_minimized = true;
+                drawGameHud(moves, timeLeft, showHud, isCalculating);
+            };
+        }
+
+        const hideBtn = hud.querySelector("#stealth-btn-hide-ui");
+        if (hideBtn) {
+            hideBtn.onclick = (e) => {
+                e.stopPropagation();
+                window.__stealth_ui_hidden = true;
+                hud.style.setProperty("display", "none", "important");
+                const domSvg = document.getElementById("stealth-board-overlay");
+                if (domSvg) domSvg.style.setProperty("display", "none", "important");
+                updateStealthFloatingBadge();
+                showStealthToast("🛡️ Stealth Mode Active (Tap 🛡️ icon to restore)");
+            };
+        }
+
+        const sndBtn = hud.querySelector("#stealth-btn-toggle-sound");
+        if (sndBtn) {
+            sndBtn.onclick = (e) => {
+                e.stopPropagation();
+                window.__stealth_sound_enabled = !window.__stealth_sound_enabled;
+                sndBtn.textContent = window.__stealth_sound_enabled ? '🔊' : '🔇';
+                showStealthToast(window.__stealth_sound_enabled ? "🔊 Sound Enabled" : "🔇 Sound Muted");
+            };
+        }
     }
 
-    // Secret Gesture to toggle UI visibility (Triple-tap)
-    let lastTap = 0;
-    let tapCount = 0;
-    window.__stealth_ui_hidden = false;
+    // ====================================================================
+    //  Stealth Floating Badge (Always allows instant 1-tap restore)
+    // ====================================================================
+    function updateStealthFloatingBadge() {
+        let badge = document.getElementById("stealth-restore-pill");
+        if (!window.__stealth_ui_hidden) {
+            if (badge) badge.style.display = "none";
+            return;
+        }
+        if (!badge) {
+            badge = document.createElement("div");
+            badge.id = "stealth-restore-pill";
+            Object.assign(badge.style, {
+                position: "fixed",
+                top: "14px",
+                right: "14px",
+                width: "36px",
+                height: "36px",
+                borderRadius: "50%",
+                backgroundColor: "rgba(10, 10, 16, 0.88)",
+                border: "1.5px solid rgba(255, 51, 51, 0.65)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#ffffff",
+                fontSize: "16px",
+                cursor: "pointer",
+                zIndex: "1000001",
+                boxShadow: "0 4px 15px rgba(0,0,0,0.6)",
+                opacity: "0.65",
+                transition: "all 0.2s ease",
+                userSelect: "none",
+                webkitUserSelect: "none",
+                touchAction: "manipulation"
+            });
+            badge.innerHTML = "🛡️";
+            badge.onclick = (e) => {
+                e.stopPropagation();
+                window.__stealth_ui_hidden = false;
+                badge.style.display = "none";
+                const domSvg = document.getElementById("stealth-board-overlay");
+                const hud = document.getElementById("stealth-hud-card");
+                if (domSvg && window.__stealth_settings_arrows !== false) domSvg.style.setProperty("display", "block", "important");
+                if (hud && window.__stealth_settings_hud !== false) hud.style.setProperty("display", "flex", "important");
+                showStealthToast("🛡️ Stealth UI Restored");
+            };
+            badge.ontouchstart = () => { badge.style.opacity = "1"; };
+            badge.ontouchend = () => { badge.style.opacity = "0.65"; };
+            document.body.appendChild(badge);
+        }
+        badge.style.display = "flex";
+    }
 
-    function handleTapGesture(e) {
-        // If the tap target is inside the chess board, a piece, or a coordinate square, ignore it
+    // ====================================================================
+    //  Safe Stealth Gesture Handler (4-Tap on top status bar only)
+    // ====================================================================
+    let lastTapTime = 0;
+    let tapCount = 0;
+
+    function handleSafeTapGesture(e) {
+        // Only trigger stealth hide/show if user intentionally taps on the top 40px of screen
+        const clientY = e.clientY || (e.changedTouches && e.changedTouches[0] && e.changedTouches[0].clientY) || 0;
+        if (clientY > 45) {
+            tapCount = 0;
+            return;
+        }
+
+        // Ignore touches on chess board, pieces, squares, HUD, or interactive elements
         if (e.target && typeof e.target.closest === "function") {
-            if (e.target.closest('wc-chess-board, chess-board, .board, .piece, [class*="square-"]')) {
+            if (e.target.closest('wc-chess-board, chess-board, cg-board, .board, .piece, [class*="square-"], #stealth-hud-card, #stealth-restore-pill, button, input, a')) {
+                tapCount = 0;
                 return;
             }
         }
 
         const now = Date.now();
-        if (now - lastTap < 450) {
+        if (now - lastTapTime < 400) {
             tapCount++;
-            if (tapCount === 3) {
+            if (tapCount >= 4) {
                 window.__stealth_ui_hidden = !window.__stealth_ui_hidden;
-                console.log("Secret Gesture: Toggled UI hidden to", window.__stealth_ui_hidden);
+                tapCount = 0;
 
-                const boardElement = document.querySelector('wc-chess-board, chess-board, .board');
-                const overlayRoot = boardElement ? (boardElement.shadowRoot || boardElement) : document;
-                const svg = document.getElementById("stealth-board-overlay") || overlayRoot.querySelector("#stealth-board-overlay");
+                const domSvg = document.getElementById("stealth-board-overlay");
                 const hud = document.getElementById("stealth-hud-card");
 
                 if (window.__stealth_ui_hidden) {
                     if (hud) hud.style.setProperty("display", "none", "important");
-                    if (svg) svg.style.setProperty("display", "none", "important");
+                    if (domSvg) domSvg.style.setProperty("display", "none", "important");
+                    updateStealthFloatingBadge();
+                    showStealthToast("🛡️ Stealth Mode: Hidden");
                 } else {
+                    if (domSvg && window.__stealth_settings_arrows !== false) domSvg.style.setProperty("display", "block", "important");
                     if (hud && window.__stealth_settings_hud !== false) hud.style.setProperty("display", "flex", "important");
-                    if (svg && window.__stealth_settings_arrows !== false) svg.style.setProperty("display", "block", "important");
+                    updateStealthFloatingBadge();
+                    showStealthToast("🛡️ Stealth Mode: Restored");
                 }
-                tapCount = 0;
             }
         } else {
             tapCount = 1;
         }
-        lastTap = now;
+        lastTapTime = now;
     }
 
-    document.addEventListener("click", handleTapGesture);
-    document.addEventListener("touchstart", handleTapGesture);
+    // Listen only to pointerup (prevents double counting from touchstart + click)
+    document.addEventListener("pointerup", handleSafeTapGesture, { passive: true });
 
-    // Start the appropriate scanner based on hostname
+    // Inject breathing pulse animation for HUD calculating state
+    const styleSheet = document.createElement("style");
+    styleSheet.type = "text/css";
+    styleSheet.innerHTML = `
+        @keyframes stealthPulse {
+            0% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.8; }
+        }
+    `;
+    document.head.appendChild(styleSheet);
+
+    // Start scanner based on hostname
     if (isLichess) {
         console.log("Stealth: Lichess.org detected. Starting Lichess scanner.");
         scanLichessBoard();

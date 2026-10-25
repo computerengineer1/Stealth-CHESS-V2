@@ -2,7 +2,7 @@ import json
 import base64
 
 # Use the exact same key in licensing.py
-SECRET_KEY = "STEALTH_CHESS_SECRET_KEY_2026"
+SECRET_KEY = "STEALTH_CHESS_SECURE_V4_KEY_2026_PRO"
 
 def xor_encrypt_decrypt(data: str, key: str) -> str:
     """XOR encryption/decryption helper using a secret key."""

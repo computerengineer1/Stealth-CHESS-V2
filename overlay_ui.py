@@ -18,6 +18,9 @@ class OverlayWindow(QWidget):
         self.board_bbox: Optional[Tuple[int, int, int, int]] = None
         self.is_white_bottom = True
         self.time_left = 300.0
+        self.last_known_score = "0.00"
+        self.last_known_is_mate = False
+        self.pulse_phase = 0.0
         
         # Get monitor bounds to align the overlay perfectly
         with mss.mss() as sct:
@@ -40,13 +43,7 @@ class OverlayWindow(QWidget):
         self.show()
 
         # Hide window from screen recording/streaming based on config
-        if sys.platform == "win32":
-            try:
-                hwnd = int(self.winId())
-                affinity = 0x00000011 if getattr(Config, 'STEALTH_DISPLAY', True) else 0x00000000
-                ctypes.windll.user32.SetWindowDisplayAffinity(hwnd, affinity)
-            except Exception as e:
-                print(f"Failed to set initial screen capture display affinity: {e}")
+        self.set_stealth_mode(getattr(Config, 'STEALTH_DISPLAY', True))
 
         # Reusable font objects to avoid layout/system lookups in paintEvent
         self.font_segoe_9_bold = QFont("Segoe UI", 9, QFont.Weight.Bold)
@@ -55,24 +52,96 @@ class OverlayWindow(QWidget):
         self.font_segoe_7_bold = QFont("Segoe UI", 7, QFont.Weight.Bold)
         self.font_segoe_7 = QFont("Segoe UI", 7)
 
+        # Periodic timer to guarantee overlay stays HWND_TOPMOST above full-screen browsers
+        self.topmost_timer = QTimer(self)
+        self.topmost_timer.timeout.connect(self._ensure_topmost)
+        self.topmost_timer.start(1200)
+
+        # Pulse timer for smooth breathing animation when engine is calculating
+        self.pulse_timer = QTimer(self)
+        self.pulse_timer.timeout.connect(self._tick_pulse)
+        self.pulse_timer.start(50)
+
+    def _ensure_topmost(self):
+        """Keep overlay window firmly on top of all windows without stealing focus."""
+        if sys.platform == "win32" and self.isVisible():
+            try:
+                hwnd = int(self.winId())
+                # HWND_TOPMOST = -1, SWP_NOMOVE = 0x0002, SWP_NOSIZE = 0x0001, SWP_NOACTIVATE = 0x0010, SWP_SHOWWINDOW = 0x0040
+                ctypes.windll.user32.SetWindowPos(hwnd, -1, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010 | 0x0040)
+            except Exception:
+                pass
+
+    def _tick_pulse(self):
+        """Advances pulse phase and repaints when calculating to keep UI animated."""
+        self.pulse_phase = (self.pulse_phase + 0.1) % (2 * math.pi)
+        if not self.moves and self.board_bbox and self.isVisible():
+            self.update()
+
     def set_stealth_mode(self, enabled: bool):
         """Dynamically toggle window visibility to screen recording/streaming tools."""
         if sys.platform == "win32":
             try:
                 hwnd = int(self.winId())
-                affinity = 0x00000011 if enabled else 0x00000000
-                ctypes.windll.user32.SetWindowDisplayAffinity(hwnd, affinity)
-                print(f"Stealth display mode toggled to: {enabled} (affinity: {hex(affinity)})")
+                if enabled:
+                    # Try WDA_EXCLUDEFROMCAPTURE (0x11) on Win10 2004+, fallback to WDA_MONITOR (0x01)
+                    res = ctypes.windll.user32.SetWindowDisplayAffinity(hwnd, 0x00000011)
+                    if not res:
+                        ctypes.windll.user32.SetWindowDisplayAffinity(hwnd, 0x00000001)
+                else:
+                    ctypes.windll.user32.SetWindowDisplayAffinity(hwnd, 0x00000000)
+                print(f"Stealth display mode set to: {enabled}")
             except Exception as e:
-                print(f"Failed to change screen capture display affinity: {e}")
+                print(f"Failed to set screen capture display affinity: {e}")
 
     def update_data(self, moves: List[Tuple[str, str]], board_bbox: Tuple[int, int, int, int], is_white_bottom: bool, time_left: float):
         """Thread-safe update of the drawing data."""
+        # Sound cue if new moves arrived
+        if moves and moves != self.moves:
+            first_score = moves[0][1] if moves else ""
+            if "M" in first_score:
+                self.play_sound("mate")
+            else:
+                try:
+                    val = float(first_score)
+                    if val >= 3.5:
+                        self.play_sound("brilliant")
+                    else:
+                        self.play_sound("move")
+                except ValueError:
+                    self.play_sound("move")
+
         self.moves = moves
-        self.board_bbox = board_bbox
+        if moves:
+            self.last_known_score = moves[0][1]
+            self.last_known_is_mate = "M" in self.last_known_score
+        self.board_bbox = board_bbox or getattr(Config, 'MANUAL_BOARD_BBOX', (283, 191, 801, 801))
         self.is_white_bottom = is_white_bottom
         self.time_left = time_left
         self.update() # Trigger immediate window repaint
+
+    def play_sound(self, sound_type: str):
+        """Plays subtle audio cues asynchronously."""
+        if not getattr(Config, 'SOUND_ENABLED', True):
+            return
+        if sys.platform != "win32":
+            return
+        import threading
+        def _beep():
+            try:
+                import winsound
+                if sound_type == "move":
+                    winsound.Beep(587, 50) # D5
+                elif sound_type == "brilliant":
+                    winsound.Beep(523, 60) # C5
+                    winsound.Beep(659, 80) # E5
+                elif sound_type == "mate":
+                    winsound.Beep(659, 60) # E5
+                    winsound.Beep(784, 60) # G5
+                    winsound.Beep(1046, 110) # C6
+            except Exception:
+                pass
+        threading.Thread(target=_beep, daemon=True).start()
 
     def _get_sq_rect(self, sq: str, left: float, top: float, sq_w: float, sq_h: float) -> QRectF:
         """Converts a square like 'e2' to its bounding box rectangle on the overlay."""
@@ -277,10 +346,8 @@ class OverlayWindow(QWidget):
         painter.setPen(QPen(QColor(255, 255, 255, 40), 1))
         painter.drawLine(int(hud_x + 15), int(hud_y + 40), int(hud_x + hud_w - 15), int(hud_y + 40))
         
-        # Get score values
-        best_score_str = "0.00"
-        if self.moves:
-            best_score_str = self.moves[0][1]
+        # Get score values (retains last known evaluation smoothly during thinking phase)
+        best_score_str = self.last_known_score if not self.moves else self.moves[0][1]
             
         score_val = 0.0
         is_mate = False
@@ -409,108 +476,128 @@ class OverlayWindow(QWidget):
         row_y = grid_y + 24
         row_h = 24
         
-        parsed_scores = []
-        best_score_val = 0.0
-        
-        for move_uci, s_str in self.moves:
-            val = 0.0
-            is_m = False
-            if "M" in s_str:
-                is_m = True
-                try:
-                    val = 1000.0 if "-" not in s_str else -1000.0
-                except Exception:
-                    val = 1000.0
-            else:
-                try:
-                    val = float(s_str)
-                except ValueError:
-                    val = 0.0
-            parsed_scores.append((val, is_m))
-            
-        if parsed_scores:
-            best_score_val = parsed_scores[0][0]
-            
-        for idx, (move_uci, s_str) in enumerate(self.moves):
-            if idx >= 3:
-                break
-                
-            score_val, is_m = parsed_scores[idx]
-            
-            classification = "GOOD"
-            color = QColor(240, 150, 20)
-            badge_text = "GOOD"
-            
-            if is_m:
-                classification = "MATE"
-                color = QColor(138, 43, 226)
-                badge_text = "MATE"
-            elif idx == 0:
-                if score_val >= 3.5:
-                    classification = "BRILLIANT"
-                    color = QColor(27, 172, 166)
-                    badge_text = "BRILLIANT"
-                else:
-                    classification = "BEST"
-                    color = QColor(38, 187, 92)
-                    badge_text = "BEST"
-            else:
-                diff = abs(best_score_val - score_val)
-                if diff >= 2.0:
-                    classification = "BAD"
-                    color = QColor(235, 60, 60)
-                    badge_text = "BLUNDER"
-                elif diff >= 1.0:
-                    classification = "INACCURACY"
-                    color = QColor(240, 100, 40)
-                    badge_text = "INACCURACY"
-                elif diff <= 0.35:
-                    classification = "EXCELLENT"
-                    color = QColor(149, 183, 33)
-                    badge_text = "EXCELLENT"
-                else:
-                    classification = "GOOD"
-                    color = QColor(240, 150, 20)
-                    badge_text = "GOOD"
-                    
-            # Zebra row background
-            bg_color = QColor(255, 255, 255, 8) if idx % 2 == 0 else QColor(0, 0, 0, 12)
-            painter.setBrush(bg_color)
+        if not self.moves:
+            # Active pulsing status box when Stockfish is calculating or during humanized delay
+            pulse_alpha = int(140 + 70 * math.sin(self.pulse_phase))
+            painter.setBrush(QColor(27, 172, 166, 20))
+            painter.setPen(QPen(QColor(27, 172, 166, pulse_alpha), 1.2))
+            painter.drawRoundedRect(QRectF(hud_x + 15, row_y, hud_w - 30, 50), 6, 6)
+
+            # Pulsing radar dot
+            painter.setBrush(QColor(27, 172, 166, pulse_alpha))
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawRoundedRect(QRectF(hud_x + 15, row_y, hud_w - 30, row_h - 4), 4, 4)
-            
-            # Indicator dot
-            painter.setBrush(color)
-            painter.drawEllipse(QPointF(hud_x + 25, row_y + row_h / 2 - 2), 4, 4)
-            
-            # Algebraic Move notation
+            painter.drawEllipse(QPointF(hud_x + 30, row_y + 25), 5, 5)
+
             painter.setFont(self.font_segoe_8_bold)
-            painter.setPen(QColor(240, 240, 255))
-            painter.drawText(QRectF(hud_x + 38, row_y, 70, row_h - 4), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, f"{idx+1}. {move_uci}")
-            
-            # centipawn value
-            disp_cp = s_str
-            if not disp_cp.startswith("-") and not disp_cp.startswith("+") and not disp_cp.startswith("M") and score_val > 0:
-                disp_cp = f"+{disp_cp}"
-                
+            painter.setPen(QColor(220, 240, 255))
+            painter.drawText(QRectF(hud_x + 46, row_y + 8, hud_w - 65, 18), Qt.AlignmentFlag.AlignLeft, "CALCULATING BEST MOVE...")
+
             painter.setFont(self.font_segoe_7)
-            painter.setPen(QColor(180, 180, 190))
-            painter.drawText(QRectF(hud_x + 105, row_y, 45, row_h - 4), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, disp_cp)
+            painter.setPen(QColor(160, 185, 200))
+            painter.drawText(QRectF(hud_x + 46, row_y + 27, hud_w - 65, 16), Qt.AlignmentFlag.AlignLeft, "جاري تحليل الرقعة وتحديد المسار الأمثل")
+        else:
+            parsed_scores = []
+            best_score_val = 0.0
             
-            # Badge pill
-            badge_w = 60
-            badge_h = 13
-            badge_x = hud_x + hud_w - 15 - badge_w - 5
-            badge_y = row_y + (row_h - badge_h) / 2 - 2
-            
-            painter.setBrush(QColor(color.red(), color.green(), color.blue(), 30))
-            painter.drawRoundedRect(QRectF(badge_x, badge_y, badge_w, badge_h), 3, 3)
-            
-            painter.setFont(self.font_segoe_7_bold)
-            painter.setPen(color)
-            painter.drawText(QRectF(badge_x, badge_y, badge_w, badge_h), Qt.AlignmentFlag.AlignCenter, badge_text)
-            
-            row_y += row_h
+            for move_uci, s_str in self.moves:
+                val = 0.0
+                is_m = False
+                if "M" in s_str:
+                    is_m = True
+                    try:
+                        val = 1000.0 if "-" not in s_str else -1000.0
+                    except Exception:
+                        val = 1000.0
+                else:
+                    try:
+                        val = float(s_str)
+                    except ValueError:
+                        val = 0.0
+                parsed_scores.append((val, is_m))
+                
+            if parsed_scores:
+                best_score_val = parsed_scores[0][0]
+                
+            for idx, (move_uci, s_str) in enumerate(self.moves):
+                if idx >= 3:
+                    break
+                    
+                score_val, is_m = parsed_scores[idx]
+                
+                classification = "GOOD"
+                color = QColor(240, 150, 20)
+                badge_text = "GOOD"
+                
+                if is_m:
+                    classification = "MATE"
+                    color = QColor(138, 43, 226)
+                    badge_text = "MATE"
+                elif idx == 0:
+                    if score_val >= 3.5:
+                        classification = "BRILLIANT"
+                        color = QColor(27, 172, 166)
+                        badge_text = "BRILLIANT"
+                    else:
+                        classification = "BEST"
+                        color = QColor(38, 187, 92)
+                        badge_text = "BEST"
+                else:
+                    diff = abs(best_score_val - score_val)
+                    if diff >= 2.0:
+                        classification = "BAD"
+                        color = QColor(235, 60, 60)
+                        badge_text = "BLUNDER"
+                    elif diff >= 1.0:
+                        classification = "INACCURACY"
+                        color = QColor(240, 100, 40)
+                        badge_text = "INACCURACY"
+                    elif diff <= 0.35:
+                        classification = "EXCELLENT"
+                        color = QColor(149, 183, 33)
+                        badge_text = "EXCELLENT"
+                    else:
+                        classification = "GOOD"
+                        color = QColor(240, 150, 20)
+                        badge_text = "GOOD"
+                        
+                # Zebra row background
+                bg_color = QColor(255, 255, 255, 8) if idx % 2 == 0 else QColor(0, 0, 0, 12)
+                painter.setBrush(bg_color)
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.drawRoundedRect(QRectF(hud_x + 15, row_y, hud_w - 30, row_h - 4), 4, 4)
+                
+                # Indicator dot
+                painter.setBrush(color)
+                painter.drawEllipse(QPointF(hud_x + 25, row_y + row_h / 2 - 2), 4, 4)
+                
+                # Algebraic Move notation
+                painter.setFont(self.font_segoe_8_bold)
+                painter.setPen(QColor(240, 240, 255))
+                painter.drawText(QRectF(hud_x + 38, row_y, 70, row_h - 4), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, f"{idx+1}. {move_uci}")
+                
+                # centipawn value
+                disp_cp = s_str
+                if not disp_cp.startswith("-") and not disp_cp.startswith("+") and not disp_cp.startswith("M") and score_val > 0:
+                    disp_cp = f"+{disp_cp}"
+                    
+                painter.setFont(self.font_segoe_7)
+                painter.setPen(QColor(180, 180, 190))
+                painter.drawText(QRectF(hud_x + 105, row_y, 45, row_h - 4), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, disp_cp)
+                
+                # Badge pill
+                badge_w = 60
+                badge_h = 13
+                badge_x = hud_x + hud_w - 15 - badge_w - 5
+                badge_y = row_y + (row_h - badge_h) / 2 - 2
+                
+                painter.setBrush(QColor(color.red(), color.green(), color.blue(), 30))
+                painter.drawRoundedRect(QRectF(badge_x, badge_y, badge_w, badge_h), 3, 3)
+                
+                painter.setFont(self.font_segoe_7_bold)
+                painter.setPen(color)
+                painter.drawText(QRectF(badge_x, badge_y, badge_w, badge_h), Qt.AlignmentFlag.AlignCenter, badge_text)
+                
+                row_y += row_h
             
         # 6. Shortcuts at the bottom
         shortcuts_y = hud_y + 275
@@ -521,9 +608,10 @@ class OverlayWindow(QWidget):
         painter.setPen(QColor(150, 150, 160))
         shortcut_text = f"🔄 {Config.HOTKEY_TOGGLE.upper()} : إخفاء/إظهار  |  ❌ {Config.HOTKEY_EXIT.upper()} : خروج"
         painter.drawText(QRectF(hud_x + 10, shortcuts_y + 8, hud_w - 20, 20), Qt.AlignmentFlag.AlignCenter, shortcut_text)
+
     def paintEvent(self, event):
         """Draws the board highlights, tactical symbols, arrows, and floating HUD dashboard."""
-        if not self.moves or not self.board_bbox:
+        if not self.board_bbox:
             return
 
         painter = QPainter(self)
@@ -546,8 +634,8 @@ class OverlayWindow(QWidget):
         # --- Draw floating glassmorphic HUD dashboard first ---
         self.draw_hud_dashboard(painter, local_left, local_top, width, height)
         
-        # If arrows are disabled, only show HUD and skip board drawing
-        if not Config.SHOW_ARROWS:
+        # If no moves calculated yet or arrows are disabled, finish painting safely after HUD!
+        if not self.moves or not Config.SHOW_ARROWS:
             painter.end()
             return
         
@@ -632,66 +720,65 @@ class OverlayWindow(QWidget):
             start_rect = self._get_sq_rect(start_sq, local_left, local_top, sq_w, sq_h)
             end_rect = self._get_sq_rect(end_sq, local_left, local_top, sq_w, sq_h)
             
-            # --- A. Draw Sleek Board Square Highlights ---
-            fill_color = QColor(color.red(), color.green(), color.blue(), 25 if i != 0 else 40)
-            painter.setBrush(fill_color)
-            border_pen = QPen(color, 2.0 if i == 0 else 1.2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
-            painter.setPen(border_pen)
+            # --- A. Draw Sleek Board Square Highlights (Only for the #1 best move) ---
+            if i == 0:
+                fill_color = QColor(color.red(), color.green(), color.blue(), 25)
+                painter.setBrush(fill_color)
+                border_pen = QPen(color, 1.8, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+                painter.setPen(border_pen)
+                painter.drawRoundedRect(start_rect.adjusted(3, 3, -3, -3), 6, 6)
+                painter.drawRoundedRect(end_rect.adjusted(3, 3, -3, -3), 6, 6)
             
-            painter.drawRoundedRect(start_rect.adjusted(3, 3, -3, -3), 6, 6)
-            painter.drawRoundedRect(end_rect.adjusted(3, 3, -3, -3), 6, 6)
-            
-            # --- B. Draw Premium Tactical Symbol inside destination square ---
-            center_pt = QPointF(end_x, end_y)
-            symbol_size = min(sq_w, sq_h) * 0.16
-            
-            if classification == "MATE":
-                self.draw_crown(painter, center_pt, symbol_size, color)
-            elif classification == "BRILLIANT":
-                self.draw_diamond(painter, center_pt, symbol_size, color)
-            elif classification == "BEST":
-                self.draw_target(painter, center_pt, symbol_size, color)
-            elif classification == "EXCELLENT":
-                self.draw_star(painter, center_pt, symbol_size, color)
-            elif classification == "BAD":
-                self.draw_warning_cross(painter, center_pt, symbol_size, color)
+            # --- B. Draw Tactical Symbol inside destination square (Only for #1 best move) ---
+            if i == 0:
+                center_pt = QPointF(end_x, end_y)
+                symbol_size = min(sq_w, sq_h) * 0.13
+                if classification == "MATE":
+                    self.draw_crown(painter, center_pt, symbol_size, color)
+                elif classification == "BRILLIANT":
+                    self.draw_diamond(painter, center_pt, symbol_size, color)
+                elif classification == "BEST":
+                    self.draw_target(painter, center_pt, symbol_size, color)
+                elif classification == "EXCELLENT":
+                    self.draw_star(painter, center_pt, symbol_size, color)
+                elif classification == "BAD":
+                    self.draw_warning_cross(painter, center_pt, symbol_size, color)
 
-            # --- C. Draw Connective 3D Arrows ---
+            # --- C. Draw Connective Arrows ---
             dx = end_x - start_x
             dy = end_y - start_y
             length = math.hypot(dx, dy)
             if length < 1e-3:
                 continue
             
-            # Normalize vector
             ux = dx / length
             uy = dy / length
- 
-            # Shorten arrow slightly so it doesn't overlap symbols/square borders
-            padding_start = 12
-            padding_end = 26 if classification in ["BEST", "BRILLIANT", "EXCELLENT", "MATE", "BAD"] else 20
+
+            padding_start = 12 if i == 0 else 8
+            padding_end = (24 if classification in ["BEST", "BRILLIANT", "EXCELLENT", "MATE", "BAD"] else 18) if i == 0 else 12
             
             new_start_x = start_x + ux * padding_start
             new_start_y = start_y + uy * padding_start
             new_end_x = start_x + ux * (length - padding_end)
             new_end_y = start_y + uy * (length - padding_end)
- 
-            # Draw outer glow / shadow for premium glassmorphic feel
-            shadow_color = QColor(0, 0, 0, 80)
-            shadow_pen = QPen(shadow_color, 9 if i == 0 else 6.5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+
+            arrow_color = color if i == 0 else QColor(color.red(), color.green(), color.blue(), 100)
+
+            # Outer glow / shadow
+            shadow_pen_width = 8.0 if i == 0 else 4.0
+            shadow_color = QColor(0, 0, 0, 70 if i == 0 else 35)
+            shadow_pen = QPen(shadow_color, shadow_pen_width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
             painter.setPen(shadow_pen)
             painter.drawLine(int(new_start_x), int(new_start_y), int(new_end_x), int(new_end_y))
- 
-            # Draw main shaft (sleek and vibrant)
-            pen_width = 5.5 if i == 0 else 3.5
-            shaft_pen = QPen(color, pen_width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+
+            # Main shaft
+            pen_width = 4.8 if i == 0 else 2.4
+            shaft_pen = QPen(arrow_color, pen_width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
             painter.setPen(shaft_pen)
             painter.drawLine(int(new_start_x), int(new_start_y), int(new_end_x), int(new_end_y))
             
-            # Draw beautiful arrow head (triangle pointing to destination)
-            arrow_head_size = 17 if i == 0 else 13
-            
-            # Perpendicular vector
+            # Arrow head
+            arrow_head_size = 16 if i == 0 else 10
             px = -uy
             py = ux
             
@@ -700,66 +787,23 @@ class OverlayWindow(QWidget):
                          new_end_y - uy * arrow_head_size + py * (arrow_head_size * 0.65))
             p3 = QPointF(new_end_x - ux * arrow_head_size - px * (arrow_head_size * 0.65),
                          new_end_y - uy * arrow_head_size - py * (arrow_head_size * 0.65))
-            
             arrow_head = QPolygonF([p1, p2, p3])
             
             # Arrow head shadow
             painter.setBrush(shadow_color)
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawPolygon(QPolygonF([p1 + QPointF(1, 1), p2 + QPointF(1, 1), p3 + QPointF(1, 1)]))
- 
+
             # Main arrow head
-            painter.setBrush(color)
+            painter.setBrush(arrow_color)
             painter.drawPolygon(arrow_head)
             
-            # Draw a premium circular node at the start point
-            node_r = 6.0 if i == 0 else 4.0
-            painter.setBrush(color)
-            painter.setPen(QPen(QColor(255, 255, 255, 200), 1.2))
-            painter.drawEllipse(QPointF(new_start_x, new_start_y), node_r, node_r)
-            
-            # --- Draw Elegant Score Tag / Badge at destination ---
-            score_text = str(score)
-            
-            if score_text.startswith("M"):
-                score_text = f"#{score_text[1:]}"
-            elif not score_text.startswith("-") and not score_text.startswith("+"):
-                try:
-                    val = float(score_text)
-                    if val > 0:
-                        score_text = f"+{score_text}"
-                except ValueError:
-                    pass
-            
-            badge_label = f"{badge_text} ({score_text})"
- 
-            painter.setFont(self.font_segoe_8_bold)
-            
-            # Measure text size
-            metrics = painter.fontMetrics()
-            text_rect = metrics.boundingRect(badge_label)
-            
-            # Badge dimensions
-            padding_x = 8
-            padding_y = 4
-            badge_w = int(text_rect.width() + padding_x * 2)
-            badge_h = int(text_rect.height() + padding_y * 2)
-            
-            badge_x = int(end_x - badge_w / 2)
-            badge_y = int(end_y - badge_h / 2 - 26) # Float above the arrow tip
-            
-            # Draw Badge Shadow
-            painter.setBrush(QColor(0, 0, 0, 140))
-            painter.drawRoundedRect(QRect(badge_x + 1, badge_y + 1, badge_w, badge_h), 5, 5)
-            
-            # Draw Badge Background (Dark premium glassmorphic with dynamic border)
-            painter.setBrush(QColor(20, 20, 25, 230))
-            painter.setPen(QPen(color, 1.5))
-            painter.drawRoundedRect(QRect(badge_x, badge_y, badge_w, badge_h), 5, 5)
-            
-            # Draw Text
-            painter.setPen(QColor(255, 255, 255))
-            painter.drawText(QRect(badge_x, badge_y, badge_w, badge_h), Qt.AlignmentFlag.AlignCenter, badge_label)
+            # Start point circular node (only for best move)
+            if i == 0:
+                node_r = 5.0
+                painter.setBrush(color)
+                painter.setPen(QPen(QColor(255, 255, 255, 200), 1.2))
+                painter.drawEllipse(QPointF(new_start_x, new_start_y), node_r, node_r)
 
         painter.end()
 
