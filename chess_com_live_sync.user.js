@@ -286,8 +286,9 @@
             return;
         }
 
+        const renderKey = `${uciMove}:${isWhiteBottom ? "white" : "black"}`;
         const existingLayer = document.getElementById("csp5-arrow-layer");
-        if (uciMove === lastRenderedMove && existingLayer) {
+        if (renderKey === lastRenderedMove && existingLayer) {
             const rect = boardEl.getBoundingClientRect();
             Object.assign(existingLayer.style, {
                 position: "fixed",
@@ -383,7 +384,7 @@
                      fill="#00f0ff" opacity="0.95" filter="url(#csp5-glow)" />
         `;
 
-        lastRenderedMove = uciMove;
+        lastRenderedMove = renderKey;
     }
 
     // ── Continuous Best Move Poller for Active Turn ──
