@@ -305,16 +305,28 @@ class OverlayWindow(QWidget):
         """Draws a beautiful, floating glassmorphic dashboard next to the board."""
         hud_w = 260
         hud_h = 320
-        
-        # Decide if HUD fits on the right or the left side of the board
+        margin = 12
+
+        # Never draw the detailed HUD over the playable squares. Prefer a side
+        # column; fall back to a clear strip above/below the board, otherwise
+        # omit the HUD for this frame rather than obscure pieces or arrows.
+        if self.width() < hud_w + margin * 2 or self.height() < hud_h + margin * 2:
+            return
+
         if board_left + board_w + hud_w + 30 <= self.width():
             hud_x = board_left + board_w + 25
-        elif board_left - hud_w - 25 >= 0:
+            hud_y = max(margin, min(board_top, self.height() - hud_h - margin))
+        elif board_left - hud_w - 25 >= margin:
             hud_x = board_left - hud_w - 25
+            hud_y = max(margin, min(board_top, self.height() - hud_h - margin))
+        elif board_top - hud_h - margin >= margin:
+            hud_x = max(margin, min(board_left, self.width() - hud_w - margin))
+            hud_y = board_top - hud_h - margin
+        elif board_top + board_h + hud_h + margin <= self.height() - margin:
+            hud_x = max(margin, min(board_left, self.width() - hud_w - margin))
+            hud_y = board_top + board_h + margin
         else:
-            hud_x = board_left + board_w - hud_w - 10
-            
-        hud_y = board_top
+            return
         
         # Draw soft outer card shadow
         painter.setBrush(QColor(0, 0, 0, 160))
