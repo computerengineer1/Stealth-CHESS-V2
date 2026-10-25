@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Chess Helper Client",
-  "version": "1.0.0",
-  "description": "Stealth auxiliary interface for Chess Helper.",
+  "name": "Chess Study Overlay",
+  "version": "1.1.0",
+  "description": "Board-state and arrow visualization for permitted study and analysis pages only.",
   "permissions": [
     "activeTab"
   ],
@@ -16,10 +16,12 @@
   "content_scripts": [
     {
       "matches": [
-        "*://chess.com/*",
-        "*://*.chess.com/*",
-        "*://lichess.org/*",
-        "*://*.lichess.org/*"
+        "https://chess.com/analysis*",
+        "https://*.chess.com/analysis*",
+        "https://lichess.org/analysis*",
+        "https://lichess.org/study/*",
+        "https://*.lichess.org/analysis*",
+        "https://*.lichess.org/study/*"
       ],
       "js": ["content.js"],
       "run_at": "document_idle"
