@@ -31,6 +31,13 @@ This README describes the codebase transparently. It does not endorse engine ass
   <a href="#security-and-fair-play">Fair play & security</a>
 </p>
 
+<p align="center">
+  <img src="web_shop/assets/hero_showcase.jpg" alt="Stealth Chess storefront showcase artwork" width="62%" />
+  <img src="web_shop/assets/mobile_mockup.jpg" alt="Stealth Chess mobile mock-up artwork" width="30%" />
+</p>
+
+<p align="center"><em>Repository visual assets for product context; these images are showcase artwork/mock-ups, not independent verification of released-build behavior.</em></p>
+
 ---
 
 ## Overview
