@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Chess Study Overlay",
+  "version": "1.1.0",
+  "description": "Board-state and arrow visualization for permitted study and analysis pages only.",
+  "permissions": [
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://chess.com/*",
+    "https://*.chess.com/*",
+    "https://lichess.org/*",
+    "https://*.lichess.org/*",
+    "http://127.0.0.1:5005/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chess.com/analysis*",
+        "https://*.chess.com/analysis*",
+        "https://lichess.org/analysis*",
+        "https://lichess.org/study/*",
+        "https://*.lichess.org/analysis*",
+        "https://*.lichess.org/study/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

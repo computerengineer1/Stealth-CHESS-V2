@@ -1,0 +1,129 @@
+name: Build Windows Desktop Package
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+
+      - name: Validate JavaScript, manifest, and Python syntax
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          node --check mobile_app/www/app.js
+          node --check mobile_app/www/injected.js
+          node --check extension/content.js
+          node --check chess_com_live_sync.user.js
+          Get-Content "extension/manifest.json" -Raw | ConvertFrom-Json | Out-Null
+          python -m py_compile config.py main.py overlay_ui.py engine_wrapper.py vision_processor.py
+
+      - name: Download official Stockfish Windows engine
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/official-stockfish/Stockfish/releases/latest"
+          $asset = $release.assets | Where-Object { $_.name -eq "stockfish-windows-x86-64-universal.zip" } | Select-Object -First 1
+          if (-not $asset) {
+            throw "The latest stable Stockfish release did not contain the expected Windows x86-64 universal archive."
+          }
+
+          $download = Join-Path $env:RUNNER_TEMP $asset.name
+          $extract = Join-Path $env:RUNNER_TEMP "stockfish-release"
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $download
+          Expand-Archive -Path $download -DestinationPath $extract -Force
+
+          $engine = Get-ChildItem -Path $extract -Recurse -File -Filter "*.exe" | Select-Object -First 1
+          if (-not $engine) {
+            throw "Could not locate the Stockfish executable in the official release archive."
+          }
+          Copy-Item $engine.FullName "stockfish-windows-x86-64-avx2.exe" -Force
+
+          $licenseUrl = "https://raw.githubusercontent.com/official-stockfish/Stockfish/$($release.tag_name)/Copying.txt"
+          Invoke-WebRequest -Uri $licenseUrl -OutFile "STOCKFISH-COPYING.txt"
+          @"
+          Stockfish release: $($release.tag_name)
+          Official release: https://github.com/official-stockfish/Stockfish/releases/tag/$($release.tag_name)
+          Official source repository: https://github.com/official-stockfish/Stockfish
+          License: GNU General Public License version 3 (see STOCKFISH-COPYING.txt).
+          "@ | Set-Content -Path "STOCKFISH-SOURCE.txt" -Encoding utf8
+
+      - name: Install Python dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt nuitka Pillow imageio
+
+      - name: Build standalone Windows application
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          python dev_tools/build.py
+          if (-not (Test-Path "build_output/main.dist/main.exe")) {
+            throw "Nuitka build failed: build_output/main.dist/main.exe was not created."
+          }
+          if (-not (Test-Path "build_output/extension/manifest.json")) {
+            throw "The browser extension folder was not copied into build_output."
+          }
+          if (Test-Path "build_output/main.dist/extension") {
+            Remove-Item "build_output/main.dist/extension" -Recurse -Force
+          }
+          Copy-Item "build_output/extension" "build_output/main.dist/extension" -Recurse -Force
+
+      - name: Assemble distributable Windows ZIP
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $bundle = "build_output/release_bundle"
+          New-Item -ItemType Directory -Path $bundle -Force | Out-Null
+          Copy-Item "build_output/main.dist" "$bundle/main.dist" -Recurse -Force
+          Copy-Item "build_output/extension" "$bundle/extension" -Recurse -Force
+          Copy-Item "README.md" "$bundle/README.md" -Force
+          Copy-Item "STOCKFISH-COPYING.txt" "$bundle/STOCKFISH-COPYING.txt" -Force
+          Copy-Item "STOCKFISH-SOURCE.txt" "$bundle/STOCKFISH-SOURCE.txt" -Force
+          @"
+          STEALTH CHESS V2 — WINDOWS STUDY BUILD
+
+          Open main.dist/main.exe to launch the desktop application.
+          Load the extension folder into Chromium using its extension developer-mode workflow.
+          The browser integration supports explicit study/analysis pages only.
+          Live-play routes are intentionally unsupported. Follow each chess platform's rules.
+
+          Stockfish is a separate open-source component; see STOCKFISH-COPYING.txt and
+          STOCKFISH-SOURCE.txt for its license and corresponding upstream source.
+          "@ | Set-Content -Path "$bundle/BUILD-NOTES.txt" -Encoding utf8
+          if (Test-Path "build_output/StealthChessHelper-Windows.zip") {
+            Remove-Item "build_output/StealthChessHelper-Windows.zip" -Force
+          }
+          Compress-Archive -Path "$bundle/*" -DestinationPath "build_output/StealthChessHelper-Windows.zip" -CompressionLevel Optimal
+          if ((Get-Item "build_output/StealthChessHelper-Windows.zip").Length -lt 1MB) {
+            throw "Windows package is unexpectedly small."
+          }
+
+      - name: Upload Windows package
+        uses: actions/upload-artifact@v4
+        with:
+          name: StealthChessHelper-Windows
+          path: build_output/StealthChessHelper-Windows.zip
+          retention-days: 90
