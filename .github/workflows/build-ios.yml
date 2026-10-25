@@ -46,6 +46,7 @@ jobs:
     - name: Build Xcode Project (Unsigned)
       working-directory: mobile_app/ios/App
       run: |
+        set -o pipefail
         xcodebuild \
           -workspace App.xcworkspace \
           -scheme App \
