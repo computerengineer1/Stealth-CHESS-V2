@@ -46,7 +46,7 @@ This README describes the codebase transparently. It does not endorse engine ass
 
 At a technical level, the project explores how board state can be represented as an 8×8 matrix, converted to **Forsyth–Edwards Notation (FEN)**, evaluated by a UCI chess engine, and presented through a graphical interface. The codebase is useful to developers studying desktop overlays, browser-to-local-app communication, chess-engine integration, and cross-platform UI packaging.
 
-> **Important — fair play:** The repository contains browser integrations for Chess.com and Lichess, plus overlay and screen-capture-related code. Engine assistance during a live or rated game can violate a platform's rules and undermine fair play. Do not use this project in rated, competitive, tournament, or other settings where outside assistance is not explicitly permitted. A hidden overlay or screen-capture setting does **not** make such use permissible, undetectable, or risk-free. This project is not affiliated with or endorsed by Chess.com or Lichess.
+> **Study-only behavior on this branch:** Browser adapters are restricted to explicit analysis/study routes (/analysis and Lichess /study/...). The mobile app opens Chess.com Analysis rather than live matchmaking. Live-play routes are intentionally unsupported. Engine assistance during a live or rated game can violate a platform's rules and undermine fair play; do not use this project where outside assistance is not explicitly permitted. A hidden overlay or screen-capture setting does **not** make such use permissible, undetectable, or risk-free. This project is not affiliated with or endorsed by Chess.com or Lichess.
 
 ## Highlights
 
