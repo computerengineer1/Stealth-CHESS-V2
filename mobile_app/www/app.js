@@ -1016,10 +1016,10 @@ function startBot() {
     }
 
     appState.isBotRunning = true;
-    addLiveLog("Starting Assistant Bot...", "info");
+    addLiveLog("Starting study mode...", "info");
     
     const startBtn = document.getElementById("start-bot-btn");
-    startBtn.textContent = "Assisting Active... (البوت يعمل)";
+    startBtn.textContent = "Study Mode Open (وضع الدراسة)";
     startBtn.style.background = "linear-gradient(135deg, #1b380d, #275915)";
     startBtn.style.borderColor = "var(--success-green)";
     
@@ -1032,7 +1032,7 @@ function startBot() {
     }
 
     // Open Chess.com inside customizable in-app browser overlay
-    addLiveLog("Opening Chess.com in WebView overlay...", "info");
+    addLiveLog("Opening Chess.com analysis board...", "info");
     
     // Build InAppBrowser options based on fullscreen preference
     let browserOptions = "location=no,hidden=no,clearcache=no,clearsessioncache=no";
@@ -1044,7 +1044,7 @@ function startBot() {
     }
     
     chessWebView = cordova.InAppBrowser.open(
-        "https://www.chess.com/play/online", 
+        "https://www.chess.com/analysis", 
         "_blank", 
         browserOptions
     );
@@ -1057,7 +1057,7 @@ function startBot() {
         if (!appState.isBotRunning || !chessWebView) return;
         chessWebView.executeScript({ code: "typeof window.drawStealthOverlay" }, (res) => {
             if (!res || res[0] === "undefined") {
-                console.log("Watchdog: Stealth script not active in WebView. Injecting...");
+                console.log("Watchdog: Study reader not active. Re-injecting...");
                 injectStealthScript();
             }
         });
@@ -1065,8 +1065,8 @@ function startBot() {
 
     // When page finished loading, inject board detector & arrow painter scripts
     chessWebView.addEventListener("loadstop", () => {
-        console.log("InAppBrowser loaded Chess.com. Injecting stealth reader...");
-        addLiveLog("WebView loaded. Injecting stealth reader script...", "info");
+        console.log("Analysis page loaded. Injecting study board reader...");
+        addLiveLog("Study board loaded. Injecting analysis reader...", "info");
         injectStealthScript();
     });
 
@@ -1132,7 +1132,7 @@ function injectStealthScript() {
 
 function stopBot() {
     appState.isBotRunning = false;
-    addLiveLog("Assistant Bot stopped.", "warning");
+    addLiveLog("Study session stopped.", "warning");
 
     if (window._injectionWatchdog) {
         clearInterval(window._injectionWatchdog);
