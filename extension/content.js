@@ -65,7 +65,8 @@
         const myColor = isWhiteBottom ? 'w' : 'b';
 
         let detectedTurn = null;
-        const highlights = boardEl.querySelectorAll('.highlight');
+        const boardRoot = boardEl.shadowRoot || boardEl;
+        const highlights = boardRoot.querySelectorAll('.highlight');
         if (highlights && highlights.length >= 2) {
             for (let i = 0; i < highlights.length; i++) {
                 const hl = highlights[i];
@@ -74,7 +75,7 @@
                     if (c.startsWith("square-")) sqCoord = c;
                 });
                 if (sqCoord) {
-                    const piece = boardEl.querySelector(`.piece.${sqCoord}`);
+                    const piece = boardRoot.querySelector(`.piece.${sqCoord}`);
                     if (piece) {
                         piece.classList.forEach(c => {
                             if (c.length === 2 && ['p', 'n', 'b', 'r', 'q', 'k'].includes(c[1].toLowerCase())) {
@@ -118,7 +119,11 @@
             return;
         }
 
-        const pieces = boardEl.querySelectorAll('.piece');
+        const boardRoot = boardEl.shadowRoot || boardEl;
+        let pieces = boardRoot.querySelectorAll('.piece, piece, [class*="piece "]');
+        if (!pieces.length) {
+            pieces = boardEl.querySelectorAll('.piece');
+        }
         if (!pieces.length) {
             nativeSetTimeout(readBoardChessCom, 100);
             return;
@@ -452,10 +457,11 @@
         }
         let matrixStr = JSON.stringify(boardArray) + `:${turn}:${isMyTurn}`;
         
-        let shouldSend = (matrixStr !== lastSentMatrixStr);
+        let shouldSend = (matrixStr !== lastSentMatrixStr) || (is_white_bottom !== lastSentIsWhiteBottom);
                            
         if (shouldSend) {
             lastSentMatrixStr = matrixStr;
+            lastSentIsWhiteBottom = is_white_bottom;
             currentBestMove = "";
             removeOnBoardArrow();
 
