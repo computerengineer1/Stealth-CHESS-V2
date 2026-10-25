@@ -7,10 +7,10 @@
     "activeTab"
   ],
   "host_permissions": [
-    "*://chess.com/*",
-    "*://*.chess.com/*",
-    "*://lichess.org/*",
-    "*://*.lichess.org/*",
+    "https://chess.com/*",
+    "https://*.chess.com/*",
+    "https://lichess.org/*",
+    "https://*.lichess.org/*",
     "http://127.0.0.1:5005/*"
   ],
   "content_scripts": [
