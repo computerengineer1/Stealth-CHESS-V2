@@ -1143,3 +1143,125 @@ input[type="text"]::placeholder {
 .success-bounce {
     animation: successBounce 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
+
+/* ======== Responsive layout hardening (phone, tablet, narrow desktop) ======== */
+#dashboard-view,
+#dashboard-view * {
+    min-width: 0;
+}
+
+#dashboard-view .banner-card {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+#dashboard-view .banner-left {
+    flex: 1 1 180px;
+    min-width: 0;
+}
+
+#dashboard-view .license-info {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+#dashboard-view .form-row {
+    flex-wrap: wrap;
+    align-items: center;
+    row-gap: 10px;
+}
+
+#dashboard-view .form-label-col {
+    flex: 1 1 135px;
+    min-width: 0;
+}
+
+#dashboard-view .custom-select,
+#dashboard-view .elo-badge,
+#dashboard-view .spinner-control {
+    flex: 0 1 160px;
+    max-width: 100%;
+}
+
+#dashboard-view .checkbox-row {
+    align-items: flex-start;
+    justify-content: flex-start;
+}
+
+#dashboard-view .checkbox-container {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    width: 100%;
+}
+
+#dashboard-view .checkbox-text {
+    min-width: 0;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+
+#dashboard-view .text-ar-desc {
+    display: inline-block;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.6;
+}
+
+@media (max-width: 380px) {
+    .app-container {
+        padding-left: calc(12px + env(safe-area-inset-left));
+        padding-right: calc(12px + env(safe-area-inset-right));
+    }
+
+    #dashboard-view .config-group {
+        padding: 16px;
+        gap: 14px;
+    }
+
+    #dashboard-view .banner-card {
+        align-items: stretch;
+    }
+
+    #dashboard-view .banner-left {
+        flex-basis: 100%;
+    }
+
+    #dashboard-view .danger-btn {
+        align-self: flex-start;
+    }
+
+    #dashboard-view .form-row:not(.vertical) {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    #dashboard-view .custom-select,
+    #dashboard-view .elo-badge,
+    #dashboard-view .spinner-control {
+        width: 100%;
+        flex-basis: auto;
+    }
+
+    #dashboard-view .config-label,
+    #dashboard-view .config-label-ar {
+        overflow-wrap: anywhere;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #dashboard-view *,
+    .watermark-bg,
+    .watermark-bg::before,
+    .watermark-bg::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+    }
+}
