@@ -79,20 +79,16 @@ class OverlayWindow(QWidget):
             self.update()
 
     def set_stealth_mode(self, enabled: bool):
-        """Dynamically toggle window visibility to screen recording/streaming tools."""
+        """Keep the study overlay visible to normal screen capture tools."""
+        Config.STEALTH_DISPLAY = False
         if sys.platform == "win32":
             try:
                 hwnd = int(self.winId())
-                if enabled:
-                    # Try WDA_EXCLUDEFROMCAPTURE (0x11) on Win10 2004+, fallback to WDA_MONITOR (0x01)
-                    res = ctypes.windll.user32.SetWindowDisplayAffinity(hwnd, 0x00000011)
-                    if not res:
-                        ctypes.windll.user32.SetWindowDisplayAffinity(hwnd, 0x00000001)
-                else:
-                    ctypes.windll.user32.SetWindowDisplayAffinity(hwnd, 0x00000000)
-                print(f"Stealth display mode set to: {enabled}")
+                # WDA_NONE: do not exclude this study window from capture.
+                ctypes.windll.user32.SetWindowDisplayAffinity(hwnd, 0x00000000)
             except Exception as e:
-                print(f"Failed to set screen capture display affinity: {e}")
+                print(f"Could not reset capture visibility: {e}")
+        print("Study overlay remains visible to screen capture.")
 
     def update_data(self, moves: List[Tuple[str, str]], board_bbox: Tuple[int, int, int, int], is_white_bottom: bool, time_left: float):
         """Thread-safe update of the drawing data."""
