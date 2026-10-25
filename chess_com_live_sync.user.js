@@ -140,7 +140,8 @@
 
         // 2. Active turn from board highlights (previous move indicators)
         let detectedTurn = null;
-        const highlights = boardEl.querySelectorAll('.highlight');
+        const boardRoot = boardEl.shadowRoot || boardEl;
+        const highlights = boardRoot.querySelectorAll('.highlight');
         if (highlights && highlights.length >= 2) {
             for (let i = 0; i < highlights.length; i++) {
                 const hl = highlights[i];
@@ -149,7 +150,7 @@
                     if (c.startsWith("square-")) sqCoord = c;
                 });
                 if (sqCoord) {
-                    const piece = boardEl.querySelector(`.piece.${sqCoord}`);
+                    const piece = boardRoot.querySelector(`.piece.${sqCoord}`);
                     if (piece) {
                         piece.classList.forEach(c => {
                             if (c.length === 2 && ['p', 'n', 'b', 'r', 'q', 'k'].includes(c[1].toLowerCase())) {
@@ -205,7 +206,11 @@
         const boardEl = document.querySelector('wc-chess-board') || document.querySelector('.board');
         if (!boardEl) return null;
 
-        const pieces = boardEl.querySelectorAll('.piece');
+        const boardRoot = boardEl.shadowRoot || boardEl;
+        let pieces = boardRoot.querySelectorAll('.piece, piece, [class*="piece "]');
+        if (!pieces || pieces.length === 0) {
+            pieces = boardEl.querySelectorAll('.piece');
+        }
         if (!pieces || pieces.length === 0) return null;
 
         const info = detectGameDetails(boardEl);
@@ -227,6 +232,9 @@
                     if (coord.length === 2) {
                         file = parseInt(coord[0], 10);
                         rank = parseInt(coord[1], 10);
+                    } else if (coord.length === 4) {
+                        file = parseInt(coord.substring(0, 2), 10);
+                        rank = parseInt(coord.substring(2, 4), 10);
                     }
                 }
             });
