@@ -122,7 +122,7 @@ function loadSettings() {
     appState.showArrows = localStorage.getItem("show_arrows") !== "false";
     appState.showHud = localStorage.getItem("show_hud") !== "false";
     appState.soundEnabled = localStorage.getItem("sound_enabled") !== "false";
-    appState.stealthScreen = localStorage.getItem("stealth_screen") !== "false";
+    appState.stealthScreen = false; // Capture hiding is disabled in study mode.
     appState.fullscreenMode = localStorage.getItem("fullscreen_mode") !== "false";
 }
 
@@ -136,7 +136,7 @@ function saveSettings() {
     localStorage.setItem("show_arrows", appState.showArrows);
     localStorage.setItem("show_hud", appState.showHud);
     localStorage.setItem("sound_enabled", appState.soundEnabled);
-    localStorage.setItem("stealth_screen", appState.stealthScreen);
+    localStorage.setItem("stealth_screen", "false");
     localStorage.setItem("fullscreen_mode", appState.fullscreenMode);
 }
 
