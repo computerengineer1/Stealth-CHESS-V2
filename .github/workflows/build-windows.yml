@@ -19,12 +19,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
           cache-dependency-path: requirements.txt
+
+      - name: Validate JavaScript, manifest, and Python syntax
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          node --check mobile_app/www/app.js
+          node --check mobile_app/www/injected.js
+          node --check extension/content.js
+          node --check chess_com_live_sync.user.js
+          Get-Content "extension/manifest.json" -Raw | ConvertFrom-Json | Out-Null
+          python -m py_compile config.py main.py overlay_ui.py engine_wrapper.py vision_processor.py
 
       - name: Download official Stockfish Windows engine
         shell: pwsh
@@ -70,6 +86,10 @@ jobs:
           if (-not (Test-Path "build_output/extension/manifest.json")) {
             throw "The browser extension folder was not copied into build_output."
           }
+          if (Test-Path "build_output/main.dist/extension") {
+            Remove-Item "build_output/main.dist/extension" -Recurse -Force
+          }
+          Copy-Item "build_output/extension" "build_output/main.dist/extension" -Recurse -Force
 
       - name: Assemble distributable Windows ZIP
         shell: pwsh
