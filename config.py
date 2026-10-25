@@ -49,9 +49,9 @@ class Config:
     # Remote verification API. Set to None to use local test keys ('TEST-KEY-MONTHLY' or 'TEST-KEY-LIFETIME').
     LICENSE_API_URL = "https://gist.githubusercontent.com/computerengineer1/c6b0466a666549755c0c149fbff7dbdd/raw/db.txt"
 
-    # --- Stealth Display Settings ---
-    # When True, the PyQt overlay is hidden from screen capture/recording/streaming (Default: True)
-    STEALTH_DISPLAY = True
+    # --- Study Overlay Visibility ---
+    # Screen-capture exclusion is disabled; study overlays remain visible in recordings.
+    STEALTH_DISPLAY = False
 
     # --- Sound Effects ---
     # When True, subtle tactical sound effects are played for moves, brilliant moves, and mate
