@@ -52,8 +52,11 @@ class Config:
     HOTKEY_STEALTH = "ctrl+shift+s"
 
     # --- Licensing Settings ---
-    # Remote verification API. Set to None to use local test keys ('TEST-KEY-MONTHLY' or 'TEST-KEY-LIFETIME').
-    LICENSE_API_URL = "https://gist.githubusercontent.com/computerengineer1/c6b0466a666549755c0c149fbff7dbdd/raw/db.txt"
+    # Central license server (Cloudflare Worker, FREE tier).
+    # After `npx wrangler deploy`, paste your worker URL here, e.g.:
+    #   https://stealth-chess-license-server.YOURNAME.workers.dev
+    # Leave empty ("") to run in offline Ed25519-only mode.
+    LICENSE_API_URL = ""
 
     # --- Study Overlay Visibility ---
     # Screen-capture exclusion is disabled; study overlays remain visible in recordings.
