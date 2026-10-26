@@ -3,130 +3,105 @@ import re
 import urllib.request
 import urllib.error
 import json
-import base64
 import datetime
 import hashlib
 import uuid
 import subprocess
 import sys
 
-# Must match the SECRET_KEY in encrypt_licenses.py
-SECRET_KEY = "STEALTH_CHESS_SECURE_V4_KEY_2026_PRO"
-LEGACY_SECRET_KEY = "STEALTH_CHESS_SECRET_KEY_2026"
+try:
+    import license_core
+    _ED_OK = True
+except Exception:
+    _ED_OK = False
+
+# Central licensing server (Cloudflare Worker). Set to your worker URL after deploy.
+SERVER_URL = os.environ.get("STEALTH_LICENSE_SERVER", "")
+
 
 def sanitize_key(raw_key: str) -> str:
-    """Sanitizes user input: removes spaces, uppercase, and fixes common typos."""
+    """Activation tokens are of the form <10-hex-ID>.<base64url signature blob>.
+    Old hex typo-fixing is removed (it would corrupt base64 signatures)."""
     if not raw_key:
         return ""
-    k = re.sub(r'\s+', '', raw_key.strip().upper())
-    parts = k.split('-')
-    if len(parts) == 4:
-        prefix = parts[0]
-        clean_parts = [prefix]
-        for seg in parts[1:4]:
-            # Convert common human typos in hex: O -> 0, I/L -> 1
-            clean_seg = seg.replace('O', '0').replace('I', '1').replace('L', '1')
-            clean_parts.append(clean_seg)
-        return '-'.join(clean_parts)
-    return k
+    k = raw_key.strip()
+    if "." in k:
+        kid, rest = k.split(".", 1)
+        return kid.upper() + "." + rest
+    return k.upper()
 
-def xor_encrypt_decrypt(data: str, key: str) -> str:
-    """XOR encryption/decryption helper using a secret key."""
-    key_len = len(key)
-    output = []
-    for i, char in enumerate(data):
-        key_char = key[i % key_len]
-        output.append(chr(ord(char) ^ ord(key_char)))
-    return "".join(output)
+
+def _persisted_install_salt() -> str:
+    """Random salt created at first run so the HWID cannot be trivially predicted."""
+    salt_file = os.path.join(os.environ.get("APPDATA", "."), "stealth_chess_salt.bin")
+    try:
+        if os.path.exists(salt_file):
+            with open(salt_file, "r", encoding="utf-8") as f:
+                s = f.read().strip()
+                if len(s) >= 16:
+                    return s
+        s = uuid.uuid4().hex + uuid.uuid4().hex
+        d = os.path.dirname(salt_file)
+        if d and not os.path.isdir(d):
+            os.makedirs(d, exist_ok=True)
+        with open(salt_file, "w", encoding="utf-8") as f:
+            f.write(s)
+        return s
+    except Exception:
+        return uuid.uuid4().hex
+
 
 def get_hwid() -> str:
-    """Generates a stable, unique Machine ID for Windows with fallback options."""
+    """Stable machine fingerprint (Windows / macOS / Linux) with fallbacks.
+
+    Uses MachineGuid (registry) on Windows — works on Windows 11 where the
+    old `wmic` tool has been removed — plus a per-install random salt so
+    fingerprints cannot be guessed from public info.
+    """
     raw_id = ""
     if sys.platform == "win32":
         try:
-            # Try to read the unique MachineGuid from Registry
             import winreg
             key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Cryptography")
             raw_id, _ = winreg.QueryValueEx(key, "MachineGuid")
             winreg.CloseKey(key)
         except Exception:
+            pass
+        if not raw_id:
             try:
-                # Fallback 1: WMI BIOS UUID (avoiding flash/cmd popup using CREATE_NO_WINDOW flag)
-                # 0x08000000 is CREATE_NO_WINDOW
-                out = subprocess.check_output("wmic csproduct get uuid", shell=True, creationflags=0x08000000).decode()
-                raw_id = out.split('\n')[1].strip()
+                cmd = ("powershell -NoProfile -Command "
+                       "(Get-CimInstance -ClassName Win32_ComputerSystemProduct).UUID")
+                out = subprocess.check_output(cmd, shell=True, timeout=10,
+                                              creationflags=0x08000000).decode().strip()
+                if len(out) >= 8:
+                    raw_id = out
             except Exception:
                 pass
-                
+    elif sys.platform == "darwin":
+        try:
+            out = subprocess.check_output(
+                ["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"], timeout=10).decode()
+            m = re.search(r'"IOPlatformUUID"\s*=\s*"([^"]+)"', out)
+            if m:
+                raw_id = m.group(1)
+        except Exception:
+            pass
+    else:  # linux
+        for p in ("/etc/machine-id", "/var/lib/dbus/machine-id"):
+            try:
+                with open(p) as f:
+                    raw_id = f.read().strip()
+                if raw_id:
+                    break
+            except Exception:
+                pass
+
     if not raw_id or len(raw_id) < 5:
-        # Fallback 2: Unique node MAC address hash
         raw_id = str(uuid.getnode())
-        
-    h = hashlib.sha256(raw_id.encode('utf-8')).hexdigest().upper()
+
+    raw_id += "|" + _persisted_install_salt()
+    h = hashlib.sha256(raw_id.encode("utf-8")).hexdigest().upper()
     return f"{h[0:4]}-{h[4:8]}-{h[8:12]}-{h[12:16]}"
-
-
-def compute_checksum(prefix: str, expd: str, nonc: str, secret: str) -> str:
-    comb = f"{prefix.upper()}-{expd.upper()}-{nonc.upper()}:{secret}"
-    h = 0
-    for ch in comb:
-        h = ((h * 31) + ord(ch)) & 0xFFFFFFFF
-    return f"{(h & 0xFFFF):04X}"
-
-def verify_cryptographic_key(key: str, secret: str, hwid: str = None):
-    key = sanitize_key(key)
-    parts = key.split('-')
-    if len(parts) != 4:
-        return None
-    prefix, expd, nonc, checksum = parts
-    if prefix not in ["MON", "TRM", "LFT", "TRL"]:
-        return None
-    if len(expd) != 4 or len(nonc) != 4 or len(checksum) != 4:
-        return None
-        
-    is_device_bound = False
-    if hwid:
-        clean_hwid = re.sub(r'[^A-Z0-9]', '', hwid.strip().upper())
-        bound_secret = f"{secret}_{clean_hwid}"
-        if checksum == compute_checksum(prefix, expd, nonc, bound_secret):
-            is_device_bound = True
-
-    if not is_device_bound:
-        expected_checksum = compute_checksum(prefix, expd, nonc, secret)
-        if checksum != expected_checksum:
-            return None
-    
-    # Verify cryptographic expiration date from key
-    try:
-        epoch_days = int(expd, 16)
-        expiry_date = datetime.date(1970, 1, 1) + datetime.timedelta(days=epoch_days)
-    except Exception:
-        return None
-
-    current_date = datetime.date.today()
-    if current_date > expiry_date:
-        return {
-            "valid": False,
-            "expired": True,
-            "expiry_date": expiry_date.strftime("%Y-%m-%d"),
-            "error": f"Subscription expired on {expiry_date.strftime('%Y-%m-%d')} (انتهى الاشتراك)"
-        }
-    
-    tier_str = "Monthly"
-    if prefix == "TRM":
-        tier_str = "3 Months"
-    elif prefix == "LFT":
-        tier_str = "Lifetime"
-    elif prefix == "TRL":
-        tier_str = "Trial"
-        
-    return {
-        "valid": True,
-        "expired": False,
-        "tier": tier_str,
-        "expiry_date": expiry_date.strftime("%Y-%m-%d"),
-        "is_device_bound": is_device_bound
-    }
 
 
 class LicenseManager:
@@ -175,10 +150,27 @@ class LicenseManager:
         self.license_key = ""
         self.is_valid = False
 
+    def _server_post(self, path: str, payload: dict, timeout: int = 8):
+        """Call the central Cloudflare Worker license server."""
+        url = (self.api_url or "").rstrip("/") + path
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            url, data=data,
+            headers={"Content-Type": "application/json",
+                    "User-Agent": "StealthChess-Licensing/2.0"},
+            method="POST")
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+
     def validate_key(self, key: str) -> bool:
         """
-        Validates the license key against cryptographic signature or remote database.
-        Automatically binds the key to this machine on first run.
+        New security model (v2.0):
+          1. The key is an Ed25519-signed activation token — verified with the
+             embedded PUBLIC key only. It is mathematically impossible to forge
+             a token without the owner's private signing key.
+          2. If the central server is reachable, it additionally checks the
+             live ledger (instant revocation) and enforces the HWID device lock.
+          3. No test keys, no shared secrets, no downloadable database.
         """
         key = sanitize_key(key)
         if not key:
@@ -186,127 +178,72 @@ class LicenseManager:
             self.is_valid = False
             return False
 
-        # Support developer / local test keys
-        if key == "TEST-KEY-MONTHLY":
-            self.is_valid = True
-            self.tier = "Monthly (Test)"
-            self.expiry_date = (datetime.date.today() + datetime.timedelta(days=30)).strftime("%Y-%m-%d")
-            self.save_local_key(key)
-            return True
-        elif key == "TEST-KEY-LIFETIME":
-            self.is_valid = True
-            self.tier = "Lifetime (Test)"
-            self.expiry_date = "2099-12-31"
-            self.save_local_key(key)
-            return True
+        current_hwid = get_hwid()
 
-        # --- 1. Primary: Remote Database Verification & Strict Hardware Lock ---
+        # --- 1. Offline cryptographic verification (Ed25519 public key) ---
+        crypto_res = None
+        if _ED_OK:
+            try:
+                crypto_res = license_core.verify_key(key, current_hwid)
+            except Exception:
+                crypto_res = None
+
+        if crypto_res and crypto_res.get("wrong_device"):
+            self.error_message = ("Device lock mismatch. This license is bound to another computer. "
+                                  "(هذا المفتاح مقفل على جهاز آخر)")
+            self.is_valid = False
+            return False
+
+        # --- 2. Online: live ledger check (revocation + binding) ---
+        server_ok = False
+        server_error = None
         if self.api_url:
             try:
-                req = urllib.request.Request(
-                    self.api_url,
-                    headers={"User-Agent": "ChessBot-Licensing-Client"}
-                )
-                with urllib.request.urlopen(req, timeout=5) as response:
-                    payload = response.read().decode('utf-8').strip()
-                    
-                decoded_bytes = base64.b64decode(payload.encode('utf-8'))
-                xor_str = decoded_bytes.decode('utf-8')
+                res = self._server_post("/api/verify", {"key": crypto_res["nonce"] if crypto_res else key,
+                                                        "hwid": current_hwid})
+                if res.get("ok"):
+                    server_ok = True
+                else:
+                    server_error = res.get("error", "REJECTED")
+            except urllib.error.HTTPError as e:
+                try:
+                    body = json.loads(e.read().decode())
+                    server_error = body.get("error", f"HTTP {e.code}")
+                except Exception:
+                    server_error = f"HTTP {e.code}"
+            except Exception:
+                server_error = None  # network down -> fall back to offline crypto
 
-                db = None
-                for test_secret in [SECRET_KEY, LEGACY_SECRET_KEY]:
-                    try:
-                        json_str = xor_encrypt_decrypt(xor_str, test_secret)
-                        candidate = json.loads(json_str)
-                        if isinstance(candidate, dict) and "keys" in candidate:
-                            db = candidate
-                            break
-                    except Exception:
-                        pass
+        if server_error == "REVOKED":
+            self.error_message = "This license has been revoked by the publisher. (تم إلغاء هذا المفتاح)"
+            self.is_valid = False
+            self.clear_local_key()
+            return False
+        if server_error == "DEVICE_MISMATCH":
+            self.error_message = ("Device lock mismatch. This license is registered to another computer. "
+                                  "(هذا المفتاح مسجل ومقفل على كمبيوتر آخر)")
+            self.is_valid = False
+            return False
+        if server_error == "EXPIRED":
+            self.error_message = "Subscription expired (انتهى الاشتراك)"
+            self.is_valid = False
+            self.clear_local_key()
+            return False
 
-                if db:
-                    keys_dict = db.get("keys", {})
-                    if key in keys_dict:
-                        key_info = keys_dict[key]
-                        expiry_str = key_info.get("expiry", "2026-05-22")
-                        tier_str = key_info.get("tier", "Active")
-                        allowed_hwid = key_info.get("hwid", "")
-                        
-                        current_hwid = get_hwid()
-                        if allowed_hwid and allowed_hwid.strip() != "":
-                            clean_allowed = re.sub(r'[^A-Z0-9]', '', allowed_hwid.strip().upper())
-                            clean_current = re.sub(r'[^A-Z0-9]', '', current_hwid.upper())
-                            if clean_allowed != clean_current:
-                                self.error_message = "Device lock mismatch. Key is registered to another computer. (هذا المفتاح مسجل ومقفل على كمبيوتر آخر)"
-                                self.is_valid = False
-                                return False
-                        
-                        expiry_date = datetime.datetime.strptime(expiry_str, "%Y-%m-%d").date()
-                        current_date = datetime.date.today()
-                        if current_date > expiry_date:
-                            self.error_message = f"Subscription expired on {expiry_str} (انتهى الاشتراك)"
-                            self.is_valid = False
-                            self.clear_local_key()
-                            return False
-                            
-                        self.is_valid = True
-                        self.tier = tier_str
-                        self.expiry_date = expiry_str
-                        self.save_local_key(key)
-                        return True
-                # Key not in remote DB — fall through to local cryptographic verification
-                pass
-            except urllib.error.URLError:
-                # Network failure - allow local HWID fallback only if previously validated
-                pass
-            except Exception as e:
-                pass
+        # --- 3. Accept when offline signature is valid (server unreachable tolerated) ---
+        if crypto_res and crypto_res.get("valid"):
+            self.expiry_date = crypto_res["expiry_date"]
+            self.tier = crypto_res["tier"]
+            self.is_valid = True
+            self.save_local_key(key)
+            return True
 
-        # --- 2. Fallback: Local Machine HWID-Locked Verification with Embedded Expiry ---
-        current_hwid = get_hwid()
-        crypto_res = verify_cryptographic_key(key, SECRET_KEY, current_hwid)
-        if crypto_res:
-            if crypto_res.get("expired"):
-                self.error_message = crypto_res.get("error", "Subscription expired (انتهى الاشتراك)")
-                self.is_valid = False
-                self.clear_local_key()
-                return False
-
-            if crypto_res.get("valid"):
-                hwid_file = os.path.join(os.environ.get("APPDATA", "."), "stealth_chess_hwid.lock")
-                locks = {}
-                if os.path.exists(hwid_file):
-                    try:
-                        with open(hwid_file, "r", encoding="utf-8") as f:
-                            locks = json.load(f)
-                    except Exception:
-                        locks = {}
-                
-                # If key was general, lock to this machine locally on first activation
-                if not crypto_res.get("is_device_bound"):
-                    key_entry = locks.get(key)
-                    if not key_entry:
-                        locks[key] = {
-                            "hwid": current_hwid,
-                            "activated_at": datetime.datetime.now().timestamp()
-                        }
-                        try:
-                            with open(hwid_file, "w", encoding="utf-8") as f:
-                                json.dump(locks, f)
-                        except Exception:
-                            pass
-                    else:
-                        bound_hwid = key_entry.get("hwid", "")
-                        if bound_hwid and bound_hwid.upper() != current_hwid.upper():
-                            self.error_message = "Device lock mismatch. Key is registered to another computer. (المفتاح مقفل على كمبيوتر آخر)"
-                            self.is_valid = False
-                            return False
-                    
-                self.expiry_date = crypto_res["expiry_date"]
-                self.tier = crypto_res["tier"]
-                self.is_valid = True
-                self.save_local_key(key)
-                return True
+        # Server said OK but we could not parse the token (legacy key formats are no longer accepted)
+        if server_ok:
+            self.error_message = ("This key uses the old format and is no longer supported. "
+                                  "Please contact the publisher for a new activation code.")
+            self.is_valid = False
+            return False
 
         self.error_message = "Invalid or deactivated key (مفتاح ترخيص غير صحيح أو ملغي)."
         self.is_valid = False

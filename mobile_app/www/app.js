@@ -2,22 +2,47 @@
 
 // Configuration & Default State
 const Config = {
-    LICENSE_API_URL: "https://gist.githubusercontent.com/computerengineer1/c6b0466a666549755c0c149fbff7dbdd/raw/db.txt",
-    SECRET_KEY: "STEALTH_CHESS_SECURE_V4_KEY_2026_PRO",
+    // Central Cloudflare Worker license server (set to your deployed worker URL):
+    LICENSE_API_URL: "https://stealth-license.YOUR-SUBDOMAIN.workers.dev",
     STOCKFISH_URL: "stockfish-18-lite-single.js"
 };
 
-// Generate or retrieve a persistent unique Device ID for this phone
-function getDeviceId() {
+// Persistent hardware-backed Device Fingerprint (Native HWID).
+// Uses the StealthDevice plugin when available (real Android ID / iOS
+// identifierForVendor). Falls back to a securely-random stored UUID.
+let _nativeDeviceId = null;
+
+function _fallbackDeviceId() {
     let deviceId = localStorage.getItem("device_id");
     if (!deviceId) {
-        // Generate a random UUID-style device fingerprint
-        deviceId = 'MOB-' + 'xxxx-xxxx-xxxx'.replace(/x/g, () => {
-            return Math.floor(Math.random() * 16).toString(16).toUpperCase();
-        });
+        const buf = new Uint8Array(16);
+        (self.crypto || window.crypto).getRandomValues(buf);
+        deviceId = 'MOB-' + Array.from(buf, b => b.toString(16).padStart(2, '0')).join('').toUpperCase().match(/.{1,4}/g).join('-');
         localStorage.setItem("device_id", deviceId);
     }
     return deviceId;
+}
+
+function getDeviceId() {
+    return _nativeDeviceId || _fallbackDeviceId();
+}
+
+async function initNativeDeviceId() {
+    try {
+        if (window.StealthDevice && typeof window.StealthDevice.getHwid === 'function') {
+            const id = await new Promise((resolve, reject) => {
+                const t = setTimeout(reject, 3000);
+                window.StealthDevice.getHwid(v => { clearTimeout(t); resolve(v); }, reject);
+            });
+            if (id && String(id).length >= 8) {
+                _nativeDeviceId = String(id).toUpperCase();
+                localStorage.setItem("device_id", _nativeDeviceId);
+            }
+        }
+    } catch (e) {
+        console.warn("Native HWID unavailable, using stored fingerprint:", e);
+    }
+    return getDeviceId();
 }
 
 let appState = {
@@ -58,8 +83,9 @@ let currentSearchCallback = null;
 let chessWebView = null;
 
 // Initialize app when DOM is ready
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
     loadSettings();
+    await initNativeDeviceId();   // hardware-backed fingerprint before any verify
     initUI();
     checkStoredLicense();
 
@@ -140,114 +166,17 @@ function saveSettings() {
     localStorage.setItem("fullscreen_mode", appState.fullscreenMode);
 }
 
-// XOR Encryption/Decryption matching python implementation
-function xorEncryptDecrypt(data, key) {
-    const keyLen = key.length;
-    let output = [];
-    for (let i = 0; i < data.length; i++) {
-        const charCode = data.charCodeAt(i) ^ key.charCodeAt(i % keyLen);
-        output.push(String.fromCharCode(charCode));
-    }
-    return output.join("");
-}
-
 function sanitizeKey(rawKey) {
     if (!rawKey) return "";
-    let k = rawKey.trim().toUpperCase().replace(/\s+/g, '');
-    const parts = k.split('-');
-    if (parts.length === 4) {
-        const prefix = parts[0];
-        const cleanParts = [prefix];
-        for (let i = 1; i < 4; i++) {
-            // In the hex segments, automatically convert common human typos:
-            // 'O' (letter) -> '0' (digit zero)
-            // 'I' or 'L' (letters) -> '1' (digit one)
-            let seg = parts[i]
-                .replace(/O/g, '0')
-                .replace(/[IL]/g, '1');
-            cleanParts.push(seg);
-        }
-        return cleanParts.join('-');
+    const k = rawKey.trim();
+    if (k.indexOf(".") !== -1) {          // Ed25519 activation token: <KID>.<base64url>
+        const i = k.indexOf(".");
+        return k.slice(0, i).toUpperCase() + "." + k.slice(i + 1);
     }
-    return k;
+    return k.toUpperCase();
 }
 
-function computeChecksum(prefix, expd, nonc, secret) {
-    const comb = `${prefix.toUpperCase()}-${expd.toUpperCase()}-${nonc.toUpperCase()}:${secret}`;
-    let h = 0;
-    for (let i = 0; i < comb.length; i++) {
-        h = (Math.imul(h, 31) + comb.charCodeAt(i)) >>> 0;
-    }
-    return ("0000" + (h & 0xFFFF).toString(16).toUpperCase()).slice(-4);
-}
-
-// Parse expiration from 4-character hex epoch days
-function parseExpiryFromHex(expd) {
-    try {
-        const epochDays = parseInt(expd, 16);
-        if (isNaN(epochDays)) return null;
-        // End of the target day (23:59:59.999 UTC)
-        const expiryDate = new Date((epochDays + 1) * 86400000 - 1);
-        const y = expiryDate.getUTCFullYear();
-        const m = String(expiryDate.getUTCMonth() + 1).padStart(2, '0');
-        const d = String(expiryDate.getUTCDate()).padStart(2, '0');
-        return {
-            timestamp: expiryDate.getTime(),
-            dateStr: `${y}-${m}-${d}`
-        };
-    } catch(e) {
-        return null;
-    }
-}
-
-// Cryptographic Key Verification & Auto-Lock Helper (Supports hardware-bound keys and embedded expiry)
-function verifyCryptographicKey(rawKey, secret) {
-    const key = sanitizeKey(rawKey);
-    if (!key) return null;
-    const parts = key.split('-');
-    if (parts.length !== 4) return null;
-    const [prefix, expd, nonc, checksum] = parts.map(p => p.trim().toUpperCase());
-    if (!["MON", "TRM", "LFT", "TRL"].includes(prefix)) return null;
-    if (expd.length !== 4 || nonc.length !== 4 || checksum.length !== 4) return null;
-    
-    // Check 1: Key cryptographically bound to this phone's Device ID
-    const currentDeviceId = getDeviceId();
-    const cleanDevId = currentDeviceId.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-    const boundSecret = secret + "_" + cleanDevId;
-    
-    let isDeviceBound = false;
-    let expectedChecksum = computeChecksum(prefix, expd, nonc, boundSecret);
-    
-    if (checksum === expectedChecksum) {
-        isDeviceBound = true;
-    } else {
-        // Check 2: General promo / trial key
-        expectedChecksum = computeChecksum(prefix, expd, nonc, secret);
-        if (checksum !== expectedChecksum) return null; // Invalid signature
-    }
-
-    // Check 2: Embedded cryptographic expiration check
-    const expiryInfo = parseExpiryFromHex(expd);
-    if (!expiryInfo) return null;
-
-    const now = Date.now();
-    const isExpired = now > expiryInfo.timestamp;
-
-    let tierStr = "Monthly";
-    if (prefix === "TRM") { tierStr = "3 Months"; }
-    else if (prefix === "LFT") { tierStr = "Lifetime"; }
-    else if (prefix === "TRL") { tierStr = "Trial"; }
-
-    return { 
-        valid: !isExpired, 
-        isExpired: isExpired, 
-        tier: tierStr, 
-        expiryDate: expiryInfo.dateStr, 
-        isDeviceBound: isDeviceBound, 
-        key: key 
-    };
-}
-
+// Verify Subscription License — v2.0 Ed25519 Security Model
 // Verify Subscription License Key
 async function verifyLicense(rawKey, forceSave = true) {
     const key = sanitizeKey(rawKey);
@@ -255,121 +184,64 @@ async function verifyLicense(rawKey, forceSave = true) {
         return { success: false, message: "Key cannot be empty (المفتاح مطلوب)" };
     }
 
-    // --- 1. Primary: Remote Database Verification & Strict Device ID Lock ---
-    try {
-        const response = await fetch(Config.LICENSE_API_URL, { cache: "no-store" });
-        if (response.ok) {
-            const payload = await response.text();
-            const decodedBytes = atob(payload.trim());
-            let db = null;
-            for (const testSecret of [Config.SECRET_KEY, "STEALTH_CHESS_SECRET_KEY_2026"]) {
-                try {
-                    const decryptedJson = xorEncryptDecrypt(decodedBytes, testSecret);
-                    const candidate = JSON.parse(decryptedJson);
-                    if (candidate && candidate.keys) {
-                        db = candidate;
-                        break;
-                    }
-                } catch (err) {}
-            }
-            const keysDict = (db && db.keys) ? db.keys : {};
-            // If the key is specifically listed in the remote Gist database:
-            if (keysDict && (key in keysDict)) {
-                const keyInfo = keysDict[key];
-                const expiryStr = keyInfo.expiry || "2026-05-22";
-                const tierStr = keyInfo.tier || "Active";
-                const allowedMobileHwid = keyInfo.mobile_hwid || "";
+    const currentDeviceId = getDeviceId();
 
-                // --- Strict Mobile Device ID Lock Check ---
-                const currentDeviceId = getDeviceId();
-                if (allowedMobileHwid && allowedMobileHwid.trim() !== "") {
-                    if (allowedMobileHwid.trim().toUpperCase() !== currentDeviceId.toUpperCase()) {
-                        return { 
-                            success: false, 
-                            message: "Device lock mismatch. Key is registered to another phone. (هذا المفتاح مقفل على جهاز آخر ولا يمكن استخدامه)" 
-                        };
-                    }
-                } else {
-                    const lockStorageKey = "device_lock_" + key;
-                    let lockedDevice = localStorage.getItem(lockStorageKey);
-                    if (!lockedDevice) {
-                        localStorage.setItem(lockStorageKey, currentDeviceId);
-                    } else if (lockedDevice.toUpperCase() !== currentDeviceId.toUpperCase()) {
-                        return { 
-                            success: false, 
-                            message: "Device lock mismatch. Key is registered to another phone. (هذا المفتاح مقفل على جهاز آخر)" 
-                        };
-                    }
-                }
-                
-                const expiryDate = new Date(expiryStr);
-                const currentDate = new Date();
-                expiryDate.setHours(23,59,59,999);
-
-                if (currentDate > expiryDate) {
-                    return { success: false, message: `Subscription expired on ${expiryStr} (انتهى الاشتراك)` };
-                }
-
-                appState.isValidLicense = true;
-                appState.tier = tierStr;
-                appState.expiryDate = expiryStr;
-                appState.licenseKey = key;
-                
-                if (forceSave) localStorage.setItem("license_key", key);
-                return { success: true };
-            }
-            // If key is not in remote Gist DB, fall through to cryptographic verification
-        }
-    } catch (e) {
-        console.warn("Remote license verification network issue, falling back to local lock check:", e);
+    // --- 1. Offline cryptographic verification (Ed25519 public key only) ---
+    let cryptoRes = null;
+    if (typeof verifyTokenOffline === 'function') {
+        cryptoRes = await verifyTokenOffline(key, currentDeviceId);
     }
 
-    // --- 2. Fallback: Local & Device-Locked Cryptographic Verification with Embedded Expiry ---
-    const cryptoResult = verifyCryptographicKey(key, Config.SECRET_KEY);
-    if (cryptoResult) {
-        if (cryptoResult.isExpired) {
-            return { 
-                success: false, 
-                message: `Subscription expired on ${cryptoResult.expiryDate} (انتهت صلاحية المفتاح)` 
-            };
-        }
+    if (cryptoRes && cryptoRes.wrongDevice) {
+        return { success: false, message: "Device lock mismatch. This license is bound to another phone. (هذا المفتاح مقفل على جهاز آخر)" };
+    }
 
-        // Anti-tamper clock check
+    // --- 2. Server check: instant revocation + one-device ledger lock ---
+    let serverError = null;
+    try {
+        const res = await fetch(Config.LICENSE_API_URL.replace(/\/$/, "") + "/api/verify", {
+            method: "POST",
+            cache: "no-store",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ key: key, hwid: currentDeviceId }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!data.ok) serverError = data.error || "REJECTED";
+    } catch (e) {
+        console.warn("License server unreachable, relying on offline signature:", e);
+    }
+
+    if (serverError === "REVOKED") {
+        return { success: false, message: "This license has been revoked by the publisher. (تم إلغاء هذا المفتاح)" };
+    }
+    if (serverError === "DEVICE_MISMATCH") {
+        return { success: false, message: "Device lock mismatch. This license is registered to another phone. (هذا المفتاح مقفل على جهاز آخر)" };
+    }
+    if (serverError === "EXPIRED") {
+        return { success: false, message: "Subscription expired (انتهى الاشتراك)" };
+    }
+
+    // --- 3. Accept valid offline signature even when server was unreachable ---
+    if (cryptoRes && cryptoRes.valid) {
         const lastSeen = parseInt(localStorage.getItem("last_seen_epoch")) || 0;
         if (Date.now() < lastSeen - (2 * 3600 * 1000)) {
-            return {
-                success: false,
-                message: "Device clock error detected. Please correct your system time. (تم اكتشاف خطأ في توقيت الجهاز)"
-            };
+            return { success: false, message: "Device clock error detected. Please correct your system time. (تم اكتشاف خطأ في توقيت الجهاز)" };
         }
         localStorage.setItem("last_seen_epoch", Date.now().toString());
 
-        const currentDeviceId = getDeviceId();
-        const lockStorageKey = "device_lock_" + key;
-
-        // If key is not pre-bound, bind it to this device locally on first use
-        if (!cryptoResult.isDeviceBound) {
-            let lockedDevice = localStorage.getItem(lockStorageKey);
-            if (!lockedDevice) {
-                localStorage.setItem(lockStorageKey, currentDeviceId);
-            } else if (lockedDevice.toUpperCase() !== currentDeviceId.toUpperCase()) {
-                return { 
-                    success: false, 
-                    message: "Device lock mismatch. Key is registered to another phone. (هذا المفتاح مقفل على جهاز آخر ولا يمكن استخدامه)" 
-                };
-            }
-        }
-
         appState.isValidLicense = true;
-        appState.tier = cryptoResult.tier;
-        appState.expiryDate = cryptoResult.expiryDate;
+        appState.tier = cryptoRes.tier;
+        appState.expiryDate = cryptoRes.expiryDate;
         appState.licenseKey = key;
-
         if (forceSave) localStorage.setItem("license_key", key);
         return { success: true };
     }
 
-    return { success: false, message: "Invalid or deactivated license key (مفتاح ترخيص غير صحيح أو ملغي)" };
+    if (cryptoRes && cryptoRes.expired) {
+        return { success: false, message: `Subscription expired on ${cryptoRes.expiryDate} (انتهت صلاحية المفتاح)` };
+    }
+
+    return { success: false, message: "Invalid activation code. Old-format keys are no longer supported — please get a new code from the publisher. (كود تفعيل غير صحيح)" };
 }
 
 // Lock dashboard and return to activation screen
