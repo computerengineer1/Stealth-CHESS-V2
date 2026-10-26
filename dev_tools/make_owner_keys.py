@@ -54,9 +54,21 @@ def main():
         format=serialization.PublicFormat.Raw,
     ).hex()
 
+    # Raw PRIVATE seed hex — this is exactly what the Cloudflare Worker
+    # expects for the PRIVATE_KEY_HEX secret (32 bytes / 64 hex chars).
+    priv_seed_hex = private_key.private_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PrivateFormat.Raw,
+        encryption_algorithm=serialization.NoEncryption(),
+    ).hex()
+    with open(os.path.join(ROOT, "stealth_owner_private_seed.hex"), "w") as f:
+        f.write(priv_seed_hex)
+
     with open(PUB_PATH, "w") as f:
         f.write(pub_hex)
     print("[+] Public key (safe to ship in clients):", pub_hex)
+    print("[+] PRIVATE seed saved to stealth_owner_private_seed.hex")
+    print("    >>> Use THIS file for: npx wrangler secret put PRIVATE_KEY_HEX <<<")
 
     # --- Inject into Python client module ---
     lc = os.path.join(ROOT, "license_core.py")

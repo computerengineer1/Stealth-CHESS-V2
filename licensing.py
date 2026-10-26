@@ -15,8 +15,21 @@ try:
 except Exception:
     _ED_OK = False
 
-# Central licensing server (Cloudflare Worker). Set to your worker URL after deploy.
-SERVER_URL = os.environ.get("STEALTH_LICENSE_SERVER", "")
+# Central licensing server (Cloudflare Worker). Priority:
+#   1) environment variable STEALTH_LICENSE_SERVER
+#   2) Config.LICENSE_API_URL (config.py) — keeps one single source of truth
+def _default_server_url() -> str:
+    url = os.environ.get("STEALTH_LICENSE_SERVER", "").strip()
+    if url:
+        return url
+    try:
+        import config as _cfg
+        url = getattr(getattr(_cfg, "Config", None), "LICENSE_API_URL", "") or ""
+    except Exception:
+        url = ""
+    return url.strip()
+
+SERVER_URL = _default_server_url()
 
 
 def sanitize_key(raw_key: str) -> str:
@@ -113,7 +126,9 @@ class LicenseManager:
     LICENSE_FILE = "license.key"
 
     def __init__(self, api_url=None):
-        self.api_url = api_url
+        # If the caller passes an empty value (e.g. Config.LICENSE_API_URL not set yet),
+        # fall back to the module-level SERVER_URL so one place configures everything.
+        self.api_url = (api_url or "").strip() or SERVER_URL
         self.license_key = ""
         self.is_valid = False
         self.expiry_date = "N/A"

@@ -1,0 +1,16 @@
+# Stealth Chess Helper — Cloudflare Worker config (FREE tier)
+# Docs: https://developers.cloudflare.com/workers/
+
+name = "stealth-chess-license-server"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+# KV namespace for the license ledger (create with: npx wrangler kv namespace create LEDGER)
+# Then paste the returned id below.
+[[kv_namespaces]]
+binding = "LEDGER"
+id = "REPLACE_WITH_YOUR_KV_ID"
+
+# Free plan allows 100,000 requests/day — more than enough.
+[vars]
+MAX_ACTIVATIONS_PER_KEY = "1"
