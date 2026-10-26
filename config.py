@@ -56,7 +56,7 @@ class Config:
     # After `npx wrangler deploy`, paste your worker URL here, e.g.:
     #   https://stealth-chess-license-server.YOURNAME.workers.dev
     # Leave empty ("") to run in offline Ed25519-only mode.
-    LICENSE_API_URL = ""
+    LICENSE_API_URL = "https://stealth-chess-license-server.stealthchess.workers.dev"
 
     # --- Study Overlay Visibility ---
     # Screen-capture exclusion is disabled; study overlays remain visible in recordings.

@@ -3,7 +3,7 @@
 // Configuration & Default State
 const Config = {
     // Central Cloudflare Worker license server (set to your deployed worker URL):
-    LICENSE_API_URL: "https://stealth-license.YOUR-SUBDOMAIN.workers.dev",
+    LICENSE_API_URL: "https://stealth-chess-license-server.stealthchess.workers.dev",
     STOCKFISH_URL: "stockfish-18-lite-single.js"
 };
 

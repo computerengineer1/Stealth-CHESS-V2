@@ -9,7 +9,7 @@ compatibility_date = "2025-01-01"
 # Then paste the returned id below.
 [[kv_namespaces]]
 binding = "LEDGER"
-id = "REPLACE_WITH_YOUR_KV_ID"
+id = "4ac45dddd29f4818b4a4413ce1e94c8a"
 
 # Free plan allows 100,000 requests/day — more than enough.
 [vars]

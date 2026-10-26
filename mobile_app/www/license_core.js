@@ -13,7 +13,7 @@
  * (Cloudflare Worker does the Ed25519 check remotely).
  */
 
-const PUBLIC_KEY_HEX = "PLACEHOLDER_PUBLIC_KEY_WILL_BE_INSTALLED_BY_MAKE_OWNER_KEYS_PY";
+const PUBLIC_KEY_HEX = "f80cfd3191b3d7cb8f6483e97236534fd0479cdb48f40c1e742fc164cf884d05";
 
 const SCHL_VALID_PREFIXES = ["MON", "TRM", "LFT", "TRL"];
 const SCHL_UNBOUND = "00000000";
